@@ -36,10 +36,11 @@ export default function CreateRoomPage() {
     setLoading(true)
     const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/rooms`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ sport, adminId:user.id, squadLimit:squad, purseLakhs:purse*100, maxOverseas:overseas, playerOrder:order, roomName:roomName||null, code })
+      body: JSON.stringify({ sport, adminId:user.id, teamName:profile?.team_name, squadLimit:squad, purseLakhs:purse*100, maxOverseas:overseas, playerOrder:order, roomName:roomName||null, code })
     })
-    const room = await res.json()
-    if (room.code) navigate(`/lobby/${room.code}`)
+    const data = await res.json()
+    const roomCode = data?.room?.code || data?.code
+    if (roomCode) navigate(`/lobby/${roomCode}`)
     else setLoading(false)
   }
 

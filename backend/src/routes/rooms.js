@@ -3,6 +3,42 @@ const express = require('express')
 module.exports = (supabase) => {
   const router = express.Router()
 
+  // POST /api/rooms — Create room
+  router.post('/', async (req, res) => {
+    try {
+      const { sport, adminId, teamName, settings } = req.body
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+
+      const { data: room, error } = await supabase
+        .from('rooms')
+        .insert({
+          code,
+          sport,
+          admin_id: adminId,
+          squad_limit: settings?.squadLimit || 25,
+          purse_lakhs: settings?.purseLakhs || 12000,
+          max_overseas: settings?.maxOverseas || 8,
+          player_order: settings?.playerOrder || 'shuffled',
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      await supabase.from('room_teams').insert({
+        room_id: room.id,
+        user_id: adminId,
+        team_name: teamName,
+        purse_remaining_lakhs: settings?.purseLakhs || 12000,
+      })
+
+      res.json({ room })
+    } catch (err) {
+      console.error('Create room error:', err)
+      res.status(500).json({ error: err.message })
+    }
+  })
+
   // GET /api/rooms/:code
   router.get('/:code', async (req, res) => {
     const { data, error } = await supabase.from('rooms')
@@ -28,10 +64,13 @@ module.exports = (supabase) => {
 
       const { data: profile } = await supabase.from('users').select('*').eq('id', userId).single()
       const { data: team, error: err } = await supabase.from('room_teams').insert({
-        room_id: room.id, user_id: userId,
+        room_id: room.id,
+        user_id: userId,
         team_name: profile?.team_name || 'Team',
-        purse_remaining_lakhs: room.purse_lakhs, is_ready: false
+        purse_remaining_lakhs: room.purse_lakhs,
+        is_ready: false
       }).select().single()
+
       if (err) return res.status(400).json({ error: err.message })
       res.json(team)
     } catch (e) {
@@ -44,11 +83,16 @@ module.exports = (supabase) => {
     try {
       const { data: room } = await supabase.from('rooms').select('*').eq('code', req.params.code.toUpperCase()).single()
       if (!room) return res.status(404).json({ error: 'Room not found' })
-      const { data: teams } = await supabase.from('room_teams').select('*, user:users(display_name,avatar_url)').eq('room_id', room.id)
-      const squads = await Promise.all((teams||[]).map(async t => {
-        const { data: picks } = await supabase.from('squad_picks').select('*, player:players(*)').eq('team_id', t.id)
+
+      const { data: teams } = await supabase.from('room_teams')
+        .select('*, user:users(display_name,avatar_url)').eq('room_id', room.id)
+
+      const squads = await Promise.all((teams || []).map(async t => {
+        const { data: picks } = await supabase.from('squad_picks')
+          .select('*, player:players(*)').eq('team_id', t.id)
         return { ...t, players: picks || [] }
       }))
+
       res.json({ room, squads })
     } catch (e) {
       res.status(500).json({ error: e.message })

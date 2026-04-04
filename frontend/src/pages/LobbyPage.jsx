@@ -21,8 +21,8 @@ export default function LobbyPage() {
     const socket = getSocket()
     socket.emit('room:join', { roomCode: code, userId: user?.id })
     socket.on('lobby:team_joined', ({ teams: t }) => { setTeams(t); addLog(`🟢 A new team joined the room`) })
-    socket.on('lobby:team_ready', ({ team_id, is_ready }) => {
-      setTeams(p => p.map(t => t.id===team_id ? {...t, is_ready} : t))
+    socket.on('lobby:ready', ({ teamId, isReady }) => {
+      setTeams(p => p.map(t => t.id===teamId ? {...t, is_ready:isReady} : t))
       addLog(`✅ A team updated their ready status`)
     })
     socket.on('auction:start', () => navigate(`/auction/${code}`))
@@ -124,9 +124,9 @@ export default function LobbyPage() {
                       <div className="text-gold text-xs mt-0.5">{t.team_name}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {isMe && !isAdmin ? (
+                      {isMe ? (
                         <button onClick={toggleReady} className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
-                                style={{background:t.is_ready?'rgba(76,175,125,0.15)':'rgba(255,255,255,0.06)',color:t.is_ready?'#4CAF7D':'#7A7870',border:`0.5px solid ${t.is_ready?'rgba(76,175,125,0.3)':'rgba(255,255,255,0.1)'}`}}>
+                                style={{background:t.is_ready?'rgba(76,175,125,0.15)':'rgba(255,255,255,0.06)',color:t.is_ready?'#4CAF7D':'#F2A623',border:`0.5px solid ${t.is_ready?'rgba(76,175,125,0.3)':'rgba(242,166,35,0.3)'}`}}>
                           {t.is_ready?'✓ Ready':'Mark Ready'}
                         </button>
                       ) : (
