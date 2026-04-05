@@ -20,13 +20,13 @@ export default function LobbyPage() {
     loadRoom()
     const socket = getSocket()
     socket.emit('room:join', { roomCode: code, userId: user?.id })
-    socket.on('lobby:team_joined', ({ teams: t }) => { setTeams(t); addLog(`🟢 A new team joined the room`) })
+    socket.on('lobby:teams', (newTeams) => { setTeams(newTeams); addLog(`🟢 A team joined or left the room`) })
     socket.on('lobby:ready', ({ teamId, isReady }) => {
       setTeams(p => p.map(t => t.id===teamId ? {...t, is_ready:isReady} : t))
       addLog(`✅ A team updated their ready status`)
     })
-    socket.on('auction:start', () => navigate(`/auction/${code}`))
-    return () => { socket.off('lobby:team_joined'); socket.off('lobby:team_ready'); socket.off('auction:start') }
+    socket.on('auction:started', () => navigate(`/auction/${code}`))
+    return () => { socket.off('lobby:teams'); socket.off('lobby:ready'); socket.off('auction:started') }
   }, [code])
 
   const loadRoom = async () => {

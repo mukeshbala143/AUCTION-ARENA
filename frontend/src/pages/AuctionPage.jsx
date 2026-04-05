@@ -64,23 +64,20 @@ export default function AuctionPage() {
       setHistory([]); setTimer(15); setSoldOverlay(null); setSkipped(false)
       announcePlayer(p, lotNumber, totalLots)
     })
-    socket.on('auction:bid_placed', ({ teamId, teamName, amountLakhs }) => {
+    socket.on('auction:bid', ({ teamId, teamName, amountLakhs }) => {
       setBid({ amount:amountLakhs, teamId }); setLeader(teamName)
       setHistory(prev=>[{ teamId, teamName, amountLakhs, time:new Date() },...prev].slice(0,10))
       setFlash(true); setTimeout(()=>setFlash(false),400)
       announceBid(teamName, amountLakhs)
     })
-    socket.on('auction:timer_update', ({ secondsRemaining }) => setTimer(secondsRemaining))
-    socket.on('auction:player_sold', ({ player:p, winnerTeam, finalPriceLakhs }) => {
+    socket.on('auction:timer', ({ seconds }) => setTimer(seconds))
+    socket.on('auction:sold', ({ player:p, winnerTeam, finalPrice: finalPriceLakhs }) => {
       setSoldOverlay({ player:p, team:winnerTeam, price:finalPriceLakhs })
       announceSold(p.name, winnerTeam.team_name, finalPriceLakhs)
       setTeams(prev=>prev.map(t=>t.id===winnerTeam.id?{...t,...winnerTeam}:t))
     })
-    socket.on('auction:player_unsold', ({ player:p }) => announceUnsold(p.name))
-    socket.on('auction:team_update', ({ teamId, purseRemaining, squadCount, overseasCount }) => {
-      setTeams(prev=>prev.map(t=>t.id===teamId?{...t,purse_remaining_lakhs:purseRemaining,squad_count:squadCount,overseas_count:overseasCount}:t))
-    })
-    socket.on('auction:phase_change', ({ phase:ph }) => {
+    socket.on('auction:unsold', ({ player:p }) => announceUnsold(p.name))
+    socket.on('auction:phase', ({ phase:ph }) => {
       setPhase(ph)
       if (ph==='unsold_round') announcePhase(0)
       if (ph==='finished') { setTimeout(()=>navigate(`/squads/${code}`),3000) }

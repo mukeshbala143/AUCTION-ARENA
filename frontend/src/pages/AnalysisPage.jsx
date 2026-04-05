@@ -30,58 +30,38 @@ export default function AnalysisPage() {
 
   const run = async () => {
     const { data: r } = await supabase.from('rooms').select('*').eq('code', code).single()
-    if (!r) return; setRoom(r); setSportTab(r.sport)
-    const { data: teams } = await supabase.from('room_teams').select('*, user:users(display_name,avatar_url)').eq('room_id', r.id)
-    const squads = await Promise.all((teams||[]).map(async t => {
-      const { data: picks } = await supabase.from('squad_picks').select('*, player:players(*)').eq('team_id', t.id)
-      return { team_name:t.team_name, owner:t.user?.display_name, purse_spent:r.purse_lakhs-t.purse_remaining_lakhs, purse_remaining:t.purse_remaining_lakhs, overseas_count:t.overseas_count, squad_count:t.squad_count,
-        players:(picks||[]).map(p=>({ name:p.player?.name, role:p.player?.role, country:p.player?.country, is_overseas:p.player?.is_overseas, is_capped:p.player?.is_capped, price_paid:p.price_paid_lakhs, base_price:p.player?.base_price_lakhs, stats_last_ipl:p.player?.stats_last_ipl, stats_total_ipl:p.player?.stats_total_ipl, stats_total_t20:p.player?.stats_total_t20 })) }
-    }))
+    if (!r) {
+      setError('Room not found.');
+      setPhase('error');
+      return;
+    }
+    setRoom(r);
+    setSportTab(r.sport);
 
     // Animate steps
     let si = 0
     const iv = setInterval(() => { si++; setStepIdx(si); setPct(Math.min(90, si*20)); if(si>=STEPS.length) clearInterval(iv) }, 1800)
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'x-api-key':import.meta.env.VITE_ANTHROPIC_API_KEY, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-        body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:4000,
-          system:`You are an elite cricket/sports analyst with 20 years experience. Analyze the given squads and rank them best to worst.
+      // Securely call the backend, which in turn calls the Anthropic API.
+      // This avoids exposing the API key on the client-side.
+      const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/analysis/${code}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-Return ONLY valid JSON in this exact format, no markdown:
-{
-  "ranked_teams": [
-    {
-      "rank": 1,
-      "team_name": "string",
-      "owner": "string",
-      "overall_score": 85,
-      "strengths": ["string","string","string"],
-      "weaknesses": ["string","string"],
-      "best_xi": ["player1","player2","player3","player4","player5","player6","player7","player8","player9","player10","player11"],
-      "analysis": "2-3 sentence written analysis",
-      "predicted_finish": "Top 2"
-    }
-  ],
-  "tournament_summary": "Brief overall tournament summary",
-  "most_valuable_pick": { "player_name": "", "team_name": "", "price_paid": 0, "reason": "" },
-  "biggest_overpay": { "player_name": "", "team_name": "", "price_paid": 0, "reason": "" }
-}`,
-          messages:[{ role:'user', content:`Sport: ${r.sport}\nAnalyze and rank these auction squads:\n${JSON.stringify(squads,null,2)}` }]
-        })
-      })
-      const d = await res.json()
-      const text = d.content?.find(c=>c.type==='text')?.text || ''
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0])
-        clearInterval(iv); setPct(100); setStepIdx(STEPS.length)
-        setTimeout(() => { setAnalysis(parsed); setPhase('results') }, 800)
-      } else throw new Error('Invalid JSON from Claude')
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || `Analysis failed with status: ${res.status}`);
+      }
+
+      const parsed = await res.json();
+      clearInterval(iv); setPct(100); setStepIdx(STEPS.length);
+      setTimeout(() => { setAnalysis(parsed); setPhase('results') }, 800);
     } catch(e) {
-      setError(e.message||'Analysis failed'); setPhase('error')
+      clearInterval(iv);
+      setError(e.message || 'Analysis failed. Check the backend server and your Anthropic API key.');
+      setPhase('error');
     }
   }
 
