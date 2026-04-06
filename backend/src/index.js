@@ -186,10 +186,11 @@ async function sellPlayer(roomCode, lot) {
 
   // Deduct purse & update counts
   const isOverseas = lot.player?.is_overseas || false
+  const { data: currentTeam } = await supabase.from('room_teams').select('*').eq('id', teamId).single()
   await supabase.from('room_teams').update({
-    purse_remaining_lakhs: supabase.raw(`purse_remaining_lakhs - ${amount}`),
-    squad_count: supabase.raw('squad_count + 1'),
-    overseas_count: isOverseas ? supabase.raw('overseas_count + 1') : undefined,
+    purse_remaining_lakhs: currentTeam.purse_remaining_lakhs - amount,
+    squad_count: currentTeam.squad_count + 1,
+    overseas_count: isOverseas ? currentTeam.overseas_count + 1 : currentTeam.overseas_count,
   }).eq('id', teamId)
 
   // Add to squad picks

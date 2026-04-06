@@ -76,7 +76,7 @@ export default function AuctionPage() {
       announceSold(p.name, winnerTeam.team_name, finalPriceLakhs)
       setTeams(prev=>prev.map(t=>t.id===winnerTeam.id?{...t,...winnerTeam}:t))
     })
-    socket.on('auction:unsold', ({ player:p }) => announceUnsold(p.name))
+    socket.on('auction:unsold', ({ player:p }) => { announceUnsold(p.name); setSoldOverlay({ player:p, team:null, price:null }) })
     socket.on('auction:phase', ({ phase:ph }) => {
       setPhase(ph)
       if (ph==='unsold_round') announcePhase(0)
@@ -288,10 +288,21 @@ export default function AuctionPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)'}}>
           <div className="text-center p-12 rounded-3xl" style={{background:'#13131f',border:'1px solid rgba(76,175,125,0.4)',animation:'soldPop 0.5s ease both',maxWidth:400}}>
             <div className="text-5xl mb-3">🔨</div>
-            <div className="font-bebas text-5xl tracking-[5px] text-emerald mb-2">SOLD!</div>
-            <div className="font-bebas text-3xl tracking-[2px] mb-3">{soldOverlay.player?.name}</div>
-            <p className="text-muted text-sm mb-1">Goes to <strong className="text-white">{soldOverlay.team?.team_name}</strong></p>
-            <div className="font-bebas text-4xl text-gold tracking-[2px]">{fmt(soldOverlay.price)}</div>
+            {soldOverlay.team ? (
+              <>
+                <div className="font-bebas text-5xl tracking-[5px] text-emerald mb-2">SOLD!</div>
+                <div className="font-bebas text-3xl tracking-[2px] mb-3">{soldOverlay.player?.name}</div>
+                <p className="text-muted text-sm mb-1">Goes to <strong className="text-white">{soldOverlay.team?.team_name}</strong></p>
+                <div className="font-bebas text-4xl text-gold tracking-[2px]">{fmt(soldOverlay.price)}</div>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl mb-3">❌</div>
+                <div className="font-bebas text-5xl tracking-[5px] mb-2" style={{color:"#D85A30"}}>UNSOLD!</div>
+                <div className="font-bebas text-3xl tracking-[2px] mb-3">{soldOverlay.player?.name}</div>
+                <p className="text-muted text-sm">No bids — moving on</p>
+              </>
+            )}
             <p className="text-muted text-xs mt-4">Next player coming up…</p>
           </div>
         </div>

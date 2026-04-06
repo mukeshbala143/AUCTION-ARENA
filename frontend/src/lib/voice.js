@@ -50,7 +50,7 @@ export const setMuted = (v) => {
 
 export const getMuted = () => muted
 
-const fmt = (l) => l >= 100 ? `${(l/100).toFixed(0)} crore` : `${l} lakhs`
+const fmt = (l) => l >= 100 ? `${(l/100) % 1 === 0 ? (l/100).toFixed(0) : (l/100).toFixed(2)} crore` : `${l} lakhs`
 
 export const announcePlayer = (p, lot, total) =>
   speak(`Lot ${lot} of ${total}. ${p.name}! ${p.role} from ${p.country}. Base price ${fmt(p.base_price_lakhs)}. Bidding starts now!`)
