@@ -25,7 +25,7 @@ function processQueue() {
   speaking = true
   const text = queue.shift()
   const u = new SpeechSynthesisUtterance(text)
-  u.rate = 1.5       // Fast & crisp
+  u.rate = 0.9       // Natural speed
   u.pitch = 1.2      // Higher = more feminine
   u.volume = 1.0
   const v = getVoice(); if (v) u.voice = v
@@ -57,8 +57,10 @@ export const announcePlayer = (p, lot, total) =>
 
 export const announceBid = (team, amt) => speak(`${fmt(amt)} from ${team}!`)
 
-export const announceSold = (player, team, price) =>
+export const announceSold = (player, team, price) => {
+  window.speechSynthesis.cancel(); queue = []; speaking = false
   speak(`Sold! ${player} goes to ${team} for ${fmt(price)}! Congratulations ${team}!`)
+}
 
 export const announceUnsold = (player) => speak(`${player} is unsold. Moving on.`)
 
