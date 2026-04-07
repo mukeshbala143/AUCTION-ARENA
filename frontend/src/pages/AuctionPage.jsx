@@ -27,6 +27,12 @@ function TimerRing({ sec }) {
 
 function fmt(l) { return l>=100?`₹${(l/100).toFixed(2).replace(/\.?0+$/,'')} Cr`:`₹${l} L` }
 
+// Helper function to format batting/bowling style (e.g. right_hand -> Right Hand)
+const formatStyle = (str) => {
+  if (!str || str === 'none') return '';
+  return str.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
 const FLAGS = {'India':'🇮🇳','Australia':'🇦🇺','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','South Africa':'🇿🇦','New Zealand':'🇳🇿','West Indies':'🇯🇲','Sri Lanka':'🇱🇰','Afghanistan':'🇦🇫','France':'🇫🇷','Norway':'🇳🇴','Netherlands':'🇳🇱','Spain':'🇪🇸','Brazil':'🇧🇷','Iran':'🇮🇷','Bangladesh':'🇧🇩','Pakistan':'🇵🇰'}
 const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'},raider:{c:'#F07050',bg:'rgba(216,90,48,0.12)',b:'rgba(216,90,48,0.25)'},defender:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},st:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},cm:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},cb:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},gk:{c:'#C99EF5',bg:'rgba(181,124,245,0.1)',b:'rgba(181,124,245,0.2)'}}
 const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D','#A8DADC','#F72585']
@@ -41,9 +47,9 @@ export default function AuctionPage() {
   const [player, setPlayer] = useState(null)
   const [lot, setLot] = useState(null)
   const [lotNum, setLotNum] = useState(0)
-  const [total, setTotal] = useState(0)          // ✅ 0 not 350 — will be set from socket
-  const [soldCount, setSoldCount] = useState(0)   // ✅ NEW
-  const [unsoldCount, setUnsoldCount] = useState(0) // ✅ NEW
+  const [total, setTotal] = useState(0)          
+  const [soldCount, setSoldCount] = useState(0)   
+  const [unsoldCount, setUnsoldCount] = useState(0) 
   const [bid, setBid] = useState(null)
   const [leader, setLeader] = useState(null)
   const [history, setHistory] = useState([])
@@ -64,8 +70,8 @@ export default function AuctionPage() {
       setPlayer(p)
       setLot(l)
       setLotNum(lotNumber)
-      setTotal(totalLots)                          // ✅ real total from backend
-      if (sc !== undefined) setSoldCount(sc)       // ✅ update counters
+      setTotal(totalLots)                          
+      if (sc !== undefined) setSoldCount(sc)       
       if (uc !== undefined) setUnsoldCount(uc)
       setBid({ amount: basePriceLakhs, teamId: null })
       setLeader(null)
@@ -89,7 +95,6 @@ export default function AuctionPage() {
 
     socket.on('auction:sold', ({ player: p, winnerTeam, finalPrice: finalPriceLakhs, soldCount: sc, unsoldCount: uc, totalPlayers: tp }) => {
       setSoldOverlay({ player: p, team: winnerTeam, price: finalPriceLakhs })
-      // ✅ Update counters from backend
       if (sc !== undefined) setSoldCount(sc)
       if (uc !== undefined) setUnsoldCount(uc)
       if (tp !== undefined) setTotal(tp)
@@ -106,7 +111,6 @@ export default function AuctionPage() {
     socket.on('auction:unsold', ({ player: p, soldCount: sc, unsoldCount: uc, totalPlayers: tp }) => {
       announceUnsold(p.name)
       setSoldOverlay({ player: p, team: null, price: null })
-      // ✅ Update counters from backend
       if (sc !== undefined) setSoldCount(sc)
       if (uc !== undefined) setUnsoldCount(uc)
       if (tp !== undefined) setTotal(tp)
@@ -155,17 +159,17 @@ export default function AuctionPage() {
   const purseInsuff = myTeam && myTeam.purse_remaining_lakhs <= (bid?.amount || 0)
 
   const statsObj = tab === 'last_ipl' ? (player?.stats_last_ipl || {}) : tab === 'total_ipl' ? (player?.stats_total_ipl || {}) : (player?.stats_total_t20 || {})
+  
+  // ✅ Added 'hundreds' to the stat fields for IPL
   const statFields = room?.sport === 'ipl'
-    ? [['matches','M'],['runs','Runs'],['wickets','Wkts'],['average','Avg'],['strike_rate','SR'],['economy','Eco'],['highest_score','HS'],['best_bowling','BB'],['fifties','50s']]
+    ? [['matches','M'],['runs','Runs'],['wickets','Wkts'],['average','Avg'],['strike_rate','SR'],['economy','Eco'],['highest_score','HS'],['best_bowling','BB'],['fifties','50s'], ['hundreds','100s']]
     : room?.sport === 'kabaddi'
     ? [['matches','M'],['raid_points','Raid Pts'],['tackle_points','Tkl Pts'],['super_raids','S.Raids'],['super_tackles','S.Tackles'],['high_5s','High-5s']]
     : [['matches','M'],['goals','Goals'],['assists','Assists'],['clean_sheets','CS'],['pass_accuracy','Pass%'],['rating','Rating']]
 
   const TABS = room?.sport === 'ipl' ? [['last_ipl','Last IPL'],['total_ipl','IPL Career'],['total_t20','T20 Total']] : room?.sport === 'kabaddi' ? [['total_ipl','PKL Career']] : [['total_ipl','Career']]
 
-  // ✅ Progress = how many have been decided (sold + unsold) out of total
   const decidedCount = soldCount + unsoldCount
-  const progressPct = total > 0 ? (decidedCount / total) * 100 : 0
 
   return (
     <div className="h-screen bg-bg flex flex-col overflow-hidden relative">
@@ -179,21 +183,17 @@ export default function AuctionPage() {
               style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>{code}</span>
 
         <div className="flex-1 flex items-center gap-3">
-          {/* ✅ FIXED: shows real total and real lotNum */}
           <span className="text-xs text-muted whitespace-nowrap font-mono">
             {decidedCount}/{total > 0 ? total : '…'}
           </span>
 
-          {/* Progress bar based on decided players */}
           <div className="flex-1 h-1.5 rounded overflow-hidden" style={{background:'rgba(255,255,255,0.06)'}}>
-            {/* Sold portion — green */}
             <div className="h-full float-left rounded-l"
                  style={{
                    width:`${total > 0 ? (soldCount/total)*100 : 0}%`,
                    background:'linear-gradient(90deg,#2a7a4a,#4CAF7D)',
                    transition:'width 0.5s'
                  }}/>
-            {/* Unsold portion — red/orange */}
             <div className="h-full float-left"
                  style={{
                    width:`${total > 0 ? (unsoldCount/total)*100 : 0}%`,
@@ -202,7 +202,6 @@ export default function AuctionPage() {
                  }}/>
           </div>
 
-          {/* ✅ Sold / Unsold pill counters */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{background:'rgba(76,175,125,0.12)',color:'#4CAF7D',border:'0.5px solid rgba(76,175,125,0.25)'}}>
@@ -230,7 +229,7 @@ export default function AuctionPage() {
       <div className="flex-1 grid overflow-hidden relative z-10" style={{gridTemplateColumns:'210px 1fr 250px'}}>
 
         {/* LEFT SIDEBAR: TEAMS */}
-        <div className="overflow-y-auto border-r p-2 flex flex-col gap-1.5"
+        <div className="overflow-y-auto border-r p-2 flex flex-col gap-1.5 custom-scrollbar"
              style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.2)'}}>
           <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1.5 mb-1">Teams</div>
           {teams.map((t, i) => {
@@ -253,7 +252,7 @@ export default function AuctionPage() {
                 </div>
                 <div className="px-3 pb-1 text-[10px] text-muted">{t.squad_count}/{room?.squad_limit||25} · {t.overseas_count} OS</div>
                 {t.picks && t.picks.length > 0 && (
-                  <div className="px-3 pb-2 flex flex-col gap-0.5 max-h-24 overflow-y-auto">
+                  <div className="px-3 pb-2 flex flex-col gap-0.5 max-h-24 overflow-y-auto custom-scrollbar">
                     {t.picks.map((pk, pi) => (
                       <div key={pi} className="flex flex-col text-[9px] py-0.5 border-b border-white/5">
                         <div className="flex items-center justify-between">
@@ -271,33 +270,63 @@ export default function AuctionPage() {
         </div>
 
         {/* CENTER: PLAYER CARD */}
-        <div className="overflow-y-auto flex flex-col items-center justify-start px-6 py-5">
+        <div className="overflow-y-auto flex flex-col items-center justify-start px-6 py-5 custom-scrollbar">
           {!player ? (
             <div className="flex flex-col items-center justify-center h-full text-muted">
               <div className="text-5xl mb-4">⏳</div>
               <p className="font-mono text-sm tracking-widest">WAITING FOR AUCTION TO START…</p>
             </div>
           ) : (
-            <div className="glass p-6 w-full max-w-[420px] flex flex-col items-center text-center">
+            <div className="glass p-6 w-full max-w-[460px] flex flex-col items-center text-center">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full pointer-events-none"
                    style={{background:`radial-gradient(circle,${rc.bg},transparent 70%)`,filter:'blur(24px)',top:-20}}/>
-              {/* ✅ Shows actual lot number e.g. "Lot #5 of 37" */}
+              
               <div className="text-[10px] tracking-[2px] uppercase text-muted mb-3 relative z-10">
                 Lot #{lotNum} of {total > 0 ? total : '…'}
               </div>
 
-              {/* Avatar */}
+              {/* ✅ FIXED Image Logic With Error Fallback */}
               <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-4 relative z-10 flex-shrink-0"
                    style={{background:'linear-gradient(135deg,#1a2535,#2a1a2a)',border:`2.5px solid ${rc.b}`,boxShadow:`0 0 35px ${rc.bg}`}}>
-                {player.photo_url
-                  ? <img src={player.photo_url} alt={player.name} className="w-full h-full rounded-full object-cover"/>
-                  : <span>{room?.sport==='ipl'?'🏏':room?.sport==='kabaddi'?'🤼':'⚽'}</span>
-                }
+                
+                {player.photo_url && (
+                  <img 
+                    src={player.photo_url} 
+                    alt={player.name} 
+                    className="w-full h-full rounded-full object-cover"
+                    onError={(e) => {
+                      // Agar photo link break ho toh hide karke default icon dikha do
+                      e.target.style.display = 'none';
+                      if(e.target.nextSibling) e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                )}
+                
+                {/* Fallback Emoji */}
+                <span style={{ display: player.photo_url ? 'none' : 'block' }}>
+                  {room?.sport==='ipl'?'🏏':room?.sport==='kabaddi'?'🤼':'⚽'}
+                </span>
+                
                 <span className="absolute -bottom-1 -right-1 text-base"
                       style={{background:'#13131f',borderRadius:'50%',padding:'2px'}}>{FLAGS[player.country]||'🌍'}</span>
               </div>
 
-              <h2 className="font-bebas text-3xl tracking-[3px] leading-none mb-3 relative z-10">{player.name}</h2>
+              <h2 className="font-bebas text-3xl tracking-[3px] leading-none mb-1 relative z-10">{player.name}</h2>
+
+              {/* ✅ NEW: Batting and Bowling Style Text */}
+              <div className="text-[10px] uppercase tracking-[2px] text-muted mb-3 flex flex-wrap items-center justify-center gap-2 font-semibold relative z-10">
+                {player.batting_style && player.batting_style !== 'none' && (
+                  <span className="text-white/70">{formatStyle(player.batting_style)} Bat</span>
+                )}
+                
+                {player.batting_style && player.batting_style !== 'none' && player.bowling_style && player.bowling_style !== 'none' && (
+                  <span className="opacity-40">•</span>
+                )}
+                
+                {player.bowling_style && player.bowling_style !== 'none' && (
+                  <span className="text-white/70">{formatStyle(player.bowling_style)}</span>
+                )}
+              </div>
 
               <div className="flex flex-wrap gap-1.5 justify-center mb-4 relative z-10">
                 <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded"
@@ -338,21 +367,21 @@ export default function AuctionPage() {
         </div>
 
         {/* RIGHT: BIDDING */}
-        <div className="overflow-y-auto border-l flex flex-col items-center py-5 px-4"
+        <div className="overflow-y-auto border-l flex flex-col items-center py-5 px-4 custom-scrollbar"
              style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.15)'}}>
           <div className="text-[10px] tracking-[2px] uppercase text-muted mb-1">Current Bid</div>
           <div className={`font-bebas text-5xl tracking-[2px] text-gold transition-transform ${flash ? 'scale-125' : ''}`}
                style={{textShadow:'0 0 50px rgba(242,166,35,0.6)',animation:'pulseGold 2s ease infinite',transition:'transform 0.3s'}}>
             {bid ? fmt(bid.amount) : '—'}
           </div>
-          <div className="text-xs text-muted mb-2">
-            {leader ? <>Led by <span className="text-gold font-semibold">{leader}</span></> : 'No bids yet'}
+          <div className="text-xs text-muted mb-2 text-center leading-tight">
+            {leader ? <>Led by <br/><span className="text-gold font-semibold text-sm">{leader}</span></> : 'No bids yet'}
           </div>
 
           <TimerRing sec={timer}/>
 
           {/* BID BUTTONS */}
-          <div className="flex flex-col gap-2 w-full mb-3">
+          <div className="flex flex-col gap-2 w-full mb-3 mt-2">
             {squadFull ? (
               <div className="w-full py-3 rounded-xl text-center text-xs font-bold text-muted"
                    style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>Squad Full</div>
@@ -387,7 +416,7 @@ export default function AuctionPage() {
 
           {/* BID HISTORY */}
           <div className="text-[10px] tracking-[2px] uppercase text-muted self-start mb-2">Bid History</div>
-          <div className="w-full space-y-1">
+          <div className="w-full space-y-1 pb-4">
             {history.length === 0 && <p className="text-xs text-muted text-center py-4">No bids on this player yet</p>}
             {history.map((h, i) => (
               <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg"
@@ -424,7 +453,6 @@ export default function AuctionPage() {
                 <p className="text-muted text-sm">No bids — moving on</p>
               </>
             )}
-            {/* ✅ Live counter in overlay */}
             <div className="mt-4 flex justify-center gap-4">
               <span className="text-[11px] font-bold px-2 py-1 rounded"
                     style={{background:'rgba(76,175,125,0.1)',color:'#4CAF7D',border:'0.5px solid rgba(76,175,125,0.2)'}}>
@@ -452,7 +480,6 @@ export default function AuctionPage() {
                style={{background:'#13131f',border:'1px solid rgba(242,166,35,0.4)',maxWidth:400}}>
             <div className="text-5xl mb-3">🏆</div>
             <div className="font-bebas text-4xl tracking-[3px] text-gold mb-2">Auction Complete!</div>
-            {/* ✅ Final summary */}
             <div className="flex justify-center gap-4 mb-4">
               <span className="text-sm font-bold" style={{color:'#4CAF7D'}}>✓ {soldCount} Sold</span>
               <span className="text-sm font-bold" style={{color:'#D85A30'}}>✗ {unsoldCount} Unsold</span>
