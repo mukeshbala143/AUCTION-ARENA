@@ -50,6 +50,27 @@ function Guard({ children }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    // This effect runs for every visitor to the site, making them "present".
+    const channel = supabase.channel('online-users', {
+      config: {
+        presence: {
+          // Each browser tab will have a unique key, counting as one "live" user.
+          key: Math.random().toString(36).slice(2),
+        },
+      },
+    });
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        // Announce that this user is online.
+        await channel.track({ online_at: new Date().toISOString() });
+      }
+    });
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
   return (
     <Routes>
       <Route path="/"                    element={<LandingPage />} />
