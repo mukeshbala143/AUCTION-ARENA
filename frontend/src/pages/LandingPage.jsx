@@ -152,7 +152,7 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t px-10 py-6 flex items-center justify-between flex-wrap gap-4" style={{borderColor:'rgba(255,255,255,0.07)'}}>
         <span className="font-bebas text-xl tracking-[4px] text-gold">AUCTION ARENA</span>
         <span className="text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
-        <div className="flex gap-6">{['Privacy','Terms','Contact'].map(l=><a key={l} href="#" className="text-muted text-xs hover:text-gold transition-colors no-underline">{l}</a>)}</div>
+        <div className="flex gap-6">{['Privacy','Terms','Contact', 'Admin'].map(l=><Link key={l} to={l === 'Admin' ? '/admin' : '#'} className="text-muted text-xs hover:text-gold transition-colors no-underline">{l}</Link>)}</div>
       </footer>
     </div>
   )
