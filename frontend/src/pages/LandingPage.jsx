@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { useStore } from '../store'
 
 const SPORTS = [
   { id:'ipl', icon:'🏏', tag:'IPL Cricket', name:'Indian Premier\nLeague', color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.4)',
@@ -24,9 +24,10 @@ const FEATS = [
 export default function LandingPage() {
   const [code, setCode] = useState('')
   const [totalUsers, setTotalUsers] = useState(0)
-  const [activeUsers, setActiveUsers] = useState(0)
+  const activeUsers = useStore(s => s.activeUsers)
   const navigate = useNavigate()
   const randomActiveUsers = useRef(Math.floor(Math.random() * (179 - 53 + 1)) + 53);
+  const displayActiveUsers = activeUsers > 50 ? activeUsers : randomActiveUsers.current
   const join = () => { if (code.trim().length === 6) navigate(`/join?code=${code.trim().toUpperCase()}`) }
 
   useEffect(() => {
@@ -49,27 +50,7 @@ export default function LandingPage() {
     };
     fetchUserCount();
 
-    // --- 2. Listen for real-time active users ---
-    const channel = supabase.channel('online-users');
-
-    const updateActiveUsers = () => {
-      const presenceState = channel.presenceState();
-      const realCount = Object.keys(presenceState).length;
-      if (realCount > 50) {
-        setActiveUsers(realCount);
-      } else {
-        setActiveUsers(randomActiveUsers.current);
-      }
-    };
-
-    channel
-      .on('presence', { event: 'sync' }, updateActiveUsers)
-      .on('presence', { event: 'join' }, updateActiveUsers)
-      .on('presence', { event: 'leave' }, updateActiveUsers)
-      .subscribe();
-
-    // --- 3. Cleanup ---
-    return () => supabase.removeChannel(channel);
+    // Active users are tracked globally in App.jsx.
   }, []);
 
   return (
@@ -103,7 +84,7 @@ export default function LandingPage() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
               </span>
               <div>
-                <div className="font-mono text-sm text-gold">{activeUsers.toLocaleString()}</div>
+                <div className="font-mono text-sm text-gold">{displayActiveUsers.toLocaleString()}</div>
                 <div className="text-muted text-[10px] uppercase tracking-widest">Live</div>
               </div>
             </div>

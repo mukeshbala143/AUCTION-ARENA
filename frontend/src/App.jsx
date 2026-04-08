@@ -50,6 +50,8 @@ function Guard({ children }) {
 }
 
 export default function App() {
+  const setActiveUsers = useStore(s => s.setActiveUsers)
+
   useEffect(() => {
     // This effect runs for every visitor to the site, making them "present".
     const channel = supabase.channel('online-users', {
@@ -61,6 +63,17 @@ export default function App() {
       },
     });
 
+    const updateActiveUsers = () => {
+      const presenceState = channel.presenceState()
+      const realCount = Object.keys(presenceState).length
+      setActiveUsers(realCount)
+    }
+
+    channel
+      .on('presence', { event: 'sync' }, updateActiveUsers)
+      .on('presence', { event: 'join' }, updateActiveUsers)
+      .on('presence', { event: 'leave' }, updateActiveUsers)
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         // Announce that this user is online.
@@ -69,7 +82,7 @@ export default function App() {
     });
 
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [setActiveUsers]);
 
   return (
     <Routes>
