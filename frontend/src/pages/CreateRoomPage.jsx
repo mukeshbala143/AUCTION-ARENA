@@ -36,7 +36,7 @@ export default function CreateRoomPage() {
     setLoading(true)
     const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/rooms`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ sport, adminId:user.id, teamName:profile?.team_name, squadLimit:squad, purseLakhs:purse*100, maxOverseas:overseas, playerOrder:order, roomName:roomName||null, code })
+      body: JSON.stringify({ sport, adminId:user.id, teamName:profile?.team_name, roomName:roomName||null, code, settings:{ squadLimit:squad, purseLakhs:purse*100, maxOverseas:overseas, playerOrder:order } })
     })
     const data = await res.json()
     const roomCode = data?.room?.code || data?.code
@@ -152,18 +152,6 @@ export default function CreateRoomPage() {
           {/* RIGHT PREVIEW */}
           <div className="sticky top-24">
             <div className="glass p-7">
-              <div className="text-xs tracking-[2px] uppercase text-muted mb-3">Your Room Code</div>
-              <div className="font-bebas text-6xl tracking-[10px] text-center my-4" style={{color:'#E8E2D9',textShadow:'0 0 40px rgba(242,166,35,0.25)'}}>{code}</div>
-              <p className="text-center text-muted text-xs mb-4">Share this with your friends</p>
-              <button onClick={copyCode} className="w-full py-2.5 rounded-lg text-sm font-bold tracking-widest uppercase transition-all hover:opacity-90 mb-3"
-                      style={{background:'rgba(242,166,35,0.1)',border:'0.5px solid rgba(242,166,35,0.3)',color:'#F2A623'}}>
-                📋 Copy Code
-              </button>
-              <div className="text-xs font-mono text-muted text-center mb-6 px-3 py-2 rounded-lg" style={{background:'rgba(255,255,255,0.03)'}}>
-                auctionarena.gg/join/{code}
-              </div>
-
-              {/* Settings preview */}
               <div className="space-y-2 mb-6">
                 {[
                   ['Sport', `${sc.icon} ${sc.label}`],

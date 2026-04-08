@@ -60,6 +60,9 @@ export default function AuctionPage() {
   const [soldOverlay, setSoldOverlay] = useState(null)
   const [flash, setFlash] = useState(false)
   const [skipped, setSkipped] = useState(false)
+  const [skipCount, setSkipCount] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const isAdmin = room?.admin_id === user?.id
 
   useEffect(() => {
     loadRoom()
@@ -79,6 +82,7 @@ export default function AuctionPage() {
       setTimer(15)
       setSoldOverlay(null)
       setSkipped(false)
+      setSkipCount(0)
       announcePlayer(p, lotNumber, totalLots)
     })
 
@@ -108,6 +112,10 @@ export default function AuctionPage() {
       announceSold(p.name, winnerTeam.team_name, finalPriceLakhs)
     })
 
+    socket.on('auction:skip', ({ teamId, skipCount: sc }) => {
+      setSkipCount(sc)
+    })
+
     socket.on('auction:unsold', ({ player: p, soldCount: sc, unsoldCount: uc, totalPlayers: tp }) => {
       announceUnsold(p.name)
       setSoldOverlay({ player: p, team: null, price: null })
@@ -125,6 +133,8 @@ export default function AuctionPage() {
       if (ph === 'finished') { setTimeout(() => navigate(`/squads/${code}`), 3000) }
     })
 
+    socket.on('auction:paused', () => setPaused(true))
+    socket.on('auction:resumed', () => setPaused(false))
     return () => socket.removeAllListeners()
   }, [code])
 
@@ -151,6 +161,11 @@ export default function AuctionPage() {
   }
 
   const toggleMute = () => { const m = !muted; setMutedState(m); setMuted(m) }
+  const togglePause = () => {
+    const socket = getSocket()
+    if (paused) socket.emit('auction:resume', { roomCode: code, userId: user?.id })
+    else socket.emit('auction:pause', { roomCode: code, userId: user?.id })
+  }
 
   const rc = ROLE_COLORS[player?.role] || ROLE_COLORS.allrounder
   const canBid = myTeam && !skipped && myTeam.squad_count < (room?.squad_limit || 25) && myTeam.purse_remaining_lakhs > (bid?.amount || 0)
@@ -219,6 +234,16 @@ export default function AuctionPage() {
           </span>
         </div>
 
+        <button onClick={() => navigate('/dashboard')} className="text-xs px-3 py-1.5 rounded-lg text-muted transition-colors"
+                style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>
+          ← Dashboard
+        </button>
+        {room?.admin_id === user?.id && (
+          <button onClick={togglePause} className="text-xs px-3 py-1.5 rounded-lg font-bold transition-colors"
+                  style={{background:paused?'rgba(76,175,125,0.15)':'rgba(242,166,35,0.1)',color:paused?'#4CAF7D':'#F2A623',border:`0.5px solid ${paused?'rgba(76,175,125,0.3)':'rgba(242,166,35,0.25)'}`}}>
+            {paused ? '▶ Resume' : '⏸ Pause'}
+          </button>
+        )}
         <button onClick={toggleMute} className="text-xs px-3 py-1.5 rounded-lg text-muted transition-colors"
                 style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>
           {muted ? '🔇 Muted' : '🔊 Sound'}
@@ -398,11 +423,18 @@ export default function AuctionPage() {
                         style={{background:'linear-gradient(135deg,#F2A623,#BA7517)',boxShadow:'0 0 20px rgba(242,166,35,0.2)'}}>
                   + ₹25 Lakhs
                 </button>
-                {(bid?.amount || 0) >= 1000 && (
+                {(bid?.amount || 0) >= 500 && (
                   <button onClick={() => placeBid(50)} disabled={!canBid || skipped}
                           className="w-full py-3 rounded-xl font-bold text-xs tracking-widest uppercase transition-all disabled:opacity-40"
                           style={{background:'rgba(216,90,48,0.15)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.35)'}}>
                     + ₹50 Lakhs
+                  </button>
+                )}
+                {(bid?.amount || 0) >= 700 && (
+                  <button onClick={() => placeBid(100)} disabled={!canBid || skipped}
+                          className="w-full py-3 rounded-xl font-bold text-xs tracking-widest uppercase transition-all disabled:opacity-40"
+                          style={{background:'rgba(181,124,245,0.15)',color:'#B57CF5',border:'0.5px solid rgba(181,124,245,0.35)'}}>
+                    + ₹1 Crore
                   </button>
                 )}
               </>
@@ -410,7 +442,7 @@ export default function AuctionPage() {
             <button onClick={skipPlayer} disabled={skipped}
                     className="w-full py-2.5 rounded-xl text-xs font-semibold text-muted transition-all disabled:opacity-30"
                     style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
-              {skipped ? '✓ Skipped' : 'Skip Player'}
+              {skipped ? `✓ Skipped` : 'Skip Player'}{skipCount > 0 && <span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}
             </button>
           </div>
 
@@ -468,6 +500,19 @@ export default function AuctionPage() {
               </span>
             </div>
             <p className="text-muted text-xs mt-3">Next player coming up…</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── PAUSE OVERLAY (non-admin) ── */}
+      {paused && room?.admin_id !== user?.id && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+             style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)'}}>
+          <div className="text-center p-12 rounded-3xl"
+               style={{background:'#13131f',border:'1px solid rgba(242,166,35,0.3)',maxWidth:400}}>
+            <div className="text-5xl mb-4">⏸</div>
+            <div className="font-bebas text-4xl tracking-[3px] text-gold mb-2">Auction Paused</div>
+            <p className="text-muted text-sm">Admin ne auction pause kiya hai. Resume hone ka wait karo…</p>
           </div>
         </div>
       )}

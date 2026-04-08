@@ -1,23 +1,24 @@
-// ── AUCTION ARENA — Voice Announcer (Fast Lady Voice) ──────────────────────
+// ── AUCTION ARENA — Voice Announcer (Strict Female Voice) ──────────────────────
 let muted = false
 let queue = []
 let speaking = false
 
 function getVoice() {
   const voices = window.speechSynthesis.getVoices()
-  const pref = [
-    v => v.name === 'Samantha',
-    v => v.name === 'Karen',
-    v => v.name === 'Victoria',
-    v => v.name.includes('Google UK English Female'),
-    v => v.name.includes('Microsoft Zira'),
-    v => v.name.includes('Microsoft Hazel'),
-    v => v.lang === 'en-GB' && v.name.toLowerCase().includes('female'),
-    v => v.lang === 'en-US' && v.name.toLowerCase().includes('female'),
-    v => v.lang.startsWith('en'),
-  ]
-  for (const p of pref) { const f = voices.find(p); if (f) return f }
-  return voices[0] || null
+  // Strictly filter female voices only
+  const femaleVoices = voices.filter(v => 
+    v.name.includes('Samantha') || 
+    v.name.includes('Karen') || 
+    v.name.includes('Victoria') || 
+    v.name.includes('Google UK English Female') || 
+    v.name.includes('Google US English Female') || 
+    v.name.includes('Microsoft Zira') || 
+    v.name.includes('Microsoft Hazel') || 
+    v.name.toLowerCase().includes('female') ||
+    v.name.toLowerCase().includes('woman')
+  )
+  
+  return femaleVoices.length > 0 ? femaleVoices[0] : (voices[0] || null)
 }
 
 function processQueue() {
@@ -25,12 +26,14 @@ function processQueue() {
   speaking = true
   const text = queue.shift()
   const u = new SpeechSynthesisUtterance(text)
-  u.rate = 0.9       // Natural speed
-  u.pitch = 1.2      // Higher = more feminine
+  u.rate = 0.95      // Smooth speed
+  u.pitch = 1.3      // High pitch for female tone
   u.volume = 1.0
   const v = getVoice(); if (v) u.voice = v
+  
   u.onend = () => { speaking = false; processQueue() }
   u.onerror = () => { speaking = false; processQueue() }
+  
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(u)
 }
@@ -53,18 +56,23 @@ export const getMuted = () => muted
 const fmt = (l) => l >= 100 ? `${(l/100) % 1 === 0 ? (l/100).toFixed(0) : (l/100).toFixed(2)} crore` : `${l} lakhs`
 
 export const announcePlayer = (p, lot, total) =>
-  speak(`Lot ${lot} of ${total}. ${p.name}! ${p.role} from ${p.country}. Base price ${fmt(p.base_price_lakhs)}. Bidding starts now!`)
+  speak(`Lot ${lot} of ${total}. ${p.name}! ${p.role.replace('_', ' ')} from ${p.country}. Base price ${fmt(p.base_price_lakhs)}. Bidding starts now!`)
 
-export const announceBid = (team, amt) => speak(`${fmt(amt)} from ${team}!`)
+export const announceBid = (team, amt) => {
+  queue = []
+  speaking = false
+  window.speechSynthesis.cancel()
+  speak(`${fmt(amt)} from ${team}!`)
+}
 
 export const announceSold = (player, team, price) => {
   window.speechSynthesis.cancel(); queue = []; speaking = false
-  speak(`Sold! ${player} goes to ${team} for ${fmt(price)}! Congratulations ${team}!`)
+  speak(`Sold! ${player} goes to ${team} for ${fmt(price)}!`)
 }
 
 export const announceUnsold = (player) => speak(`${player} is unsold. Moving on.`)
 
 export const announcePhase = (count) =>
-  speak(`Main auction complete! ${count} unsold players re-enter. Let the second round begin!`)
+  speak(`Main auction complete! Unsold players re-enter. Let the second round begin!`)
 
-export const announceEnd = () => speak(`The auction is over! All squads are final. Let the games begin!`)
+export const announceEnd = () => speak(`The auction is over! Let the games begin!`)
