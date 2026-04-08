@@ -36,7 +36,7 @@ export default function LoginPage() {
           </div>
           {/* Features */}
           <div className="space-y-2 mb-8">
-            {[['⚡','Real-time bidding with 15s server timer'],['🎙️','Fast lady voice announces every bid & sale'],['🤖','Claude AI ranks all squads after auction'],['📊','Export all squads to Excel instantly']].map(([ic,t])=>(
+            {[['⚡','Real-time bidding with 15s server timer'],['🎙️','Fast lady voice announces every bid & sale'],['🤖','Gemini ranks all squads after auction'],['📊','Export all squads to Excel instantly']].map(([ic,t])=>(
               <div key={t} className="flex items-center gap-3 text-sm text-muted px-4 py-2.5 rounded-xl" style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.06)'}}>
                 <span className="text-base">{ic}</span>{t}
               </div>

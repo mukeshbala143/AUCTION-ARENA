@@ -415,7 +415,10 @@ export default function DashboardPage() {
       {/* FOOTER */}
       <footer className="relative z-10 px-4 sm:px-6 md:px-10 py-5 sm:py-6 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 mt-4 bg-black/20">
         <span className="font-bebas text-lg sm:text-xl tracking-[3px] sm:tracking-[4px] text-gold">AUCTION ARENA</span>
-        <span className="text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
+        <div className="text-center">
+          <span className="block text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
+          <span className="block text-muted text-[11px] mt-1">Developed by Subrata Bala & Mukesh Bala</span>
+        </div>
         <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
           <button onClick={() => setActiveModal('privacy')} className="text-muted text-xs hover:text-gold transition-colors">Privacy</button>
           <button onClick={() => setActiveModal('terms')} className="text-muted text-xs hover:text-gold transition-colors">Terms</button>

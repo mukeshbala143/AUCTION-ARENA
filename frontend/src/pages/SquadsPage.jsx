@@ -1,36 +1,69 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 const SPORT_COLOR = { ipl:'#F2A623', kabaddi:'#D85A30', football:'#4CAF7D' }
 const TC = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D','#A8DADC','#F72585']
 const FLAGS = {'India':'🇮🇳','Australia':'🇦🇺','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','South Africa':'🇿🇦','New Zealand':'🇳🇿','West Indies':'🇯🇲','Sri Lanka':'🇱🇰','Afghanistan':'🇦🇫','France':'🇫🇷','Norway':'🇳🇴','Netherlands':'🇳🇱','Spain':'🇪🇸','Brazil':'🇧🇷','Iran':'🇮🇷','Bangladesh':'🇧🇩'}
 const fmt = l => l>=100?`₹${(l/100).toFixed(0)} Cr`:`₹${l} L`
+const roleIcon = (role) => role==='batsman'?'🏏':role==='bowler'?'🎳':role==='allrounder'?'🔄':role==='wicketkeeper'?'🥊':role==='raider'?'⚡':role==='defender'?'🛡️':'⚽'
 
 export default function SquadsPage() {
   const { code } = useParams()
+  const navigate = useNavigate()
   const [room, setRoom] = useState(null)
   const [squads, setSquads] = useState([])
   const [filter, setFilter] = useState('all')
-  const [expanded, setExpanded] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [busyAction, setBusyAction] = useState('')
 
   useEffect(() => { load() }, [code])
 
   const load = async () => {
+    setLoading(true)
     const { data: room } = await supabase.from('rooms').select('*').eq('code', code).single()
-    if (!room) return; setRoom(room)
-    const { data: teams } = await supabase.from('room_teams').select('*, user:users(display_name,avatar_url)').eq('room_id', room.id)
-    const allSquads = await Promise.all((teams||[]).map(async (t,i) => {
-      const { data: picks } = await supabase.from('squad_picks').select('*, player:players(*)').eq('team_id', t.id).order('price_paid_lakhs',{ascending:false})
-      return { ...t, players: picks||[], color: TC[i%TC.length] }
+    if (!room) {
+      setLoading(false)
+      return
+    }
+    setRoom(room)
+
+    // Faster loading: fetch all teams + all picks in two queries (instead of one query per team).
+    const [{ data: teams }, { data: picks }] = await Promise.all([
+      supabase.from('room_teams').select('*, user:users(display_name,avatar_url)').eq('room_id', room.id),
+      supabase
+        .from('squad_picks')
+        .select('*, player:players(*), lot:auction_lots(lot_number,is_unsold_round)')
+        .eq('room_id', room.id)
+        .order('picked_at', { ascending: false }),
+    ])
+
+    const picksByTeam = (picks || []).reduce((acc, pick) => {
+      if (!acc[pick.team_id]) acc[pick.team_id] = []
+      acc[pick.team_id].push(pick)
+      return acc
+    }, {})
+
+    const allSquads = (teams || []).map((t, i) => ({
+      ...t,
+      players: picksByTeam[t.id] || [],
+      color: TC[i % TC.length],
     }))
-    setSquads(allSquads); setLoading(false)
-    if (allSquads.length > 0) setExpanded(allSquads[0].id)
+
+    setSquads(allSquads)
+    setLoading(false)
   }
 
   const sportLabel = { ipl:'🏏 IPL Cricket', kabaddi:'🤼 Pro Kabaddi', football:'⚽ World Football' }
-  const totalSpent = squads.reduce((a,s)=>a+((room?.purse_lakhs||0)-s.purse_remaining_lakhs),0)
+  const totalSpent = useMemo(
+    () => squads.reduce((a, s) => a + ((room?.purse_lakhs || 0) - s.purse_remaining_lakhs), 0),
+    [room?.purse_lakhs, squads]
+  )
+
+  const goTo = (path, action) => {
+    setBusyAction(action)
+    navigate(path)
+  }
 
   if (loading) return (
     <div className="min-h-screen bg-bg flex items-center justify-center">
@@ -46,8 +79,22 @@ export default function SquadsPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-4 flex items-center justify-between" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
         <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
         <div className="flex gap-2">
-          <Link to={`/export/${code}`} className="btn-outline text-xs no-underline" style={{padding:'0.5rem 1rem'}}>📊 Export Excel</Link>
-          <Link to={`/analysis/${code}`} className="text-xs no-underline px-4 py-2 rounded-lg font-bold transition-all" style={{background:'rgba(76,175,125,0.12)',color:'#4CAF7D',border:'0.5px solid rgba(76,175,125,0.25)'}}>🤖 AI Analysis</Link>
+          <button
+            onClick={() => goTo(`/export/${code}`, 'export')}
+            disabled={busyAction !== ''}
+            className="btn-outline text-xs"
+            style={{padding:'0.5rem 1rem', opacity: busyAction !== '' && busyAction !== 'export' ? 0.6 : 1}}
+          >
+            {busyAction === 'export' ? '⏳ Opening…' : '📊 Export Excel'}
+          </button>
+          <button
+            onClick={() => goTo(`/analysis/${code}`, 'analysis')}
+            disabled={busyAction !== ''}
+            className="text-xs px-4 py-2 rounded-lg font-bold transition-all"
+            style={{background:'rgba(76,175,125,0.12)',color:'#4CAF7D',border:'0.5px solid rgba(76,175,125,0.25)', opacity: busyAction !== '' && busyAction !== 'analysis' ? 0.6 : 1}}
+          >
+            {busyAction === 'analysis' ? '⏳ Opening…' : '🤖 AI Analysis'}
+          </button>
         </div>
       </nav>
 
@@ -85,14 +132,24 @@ export default function SquadsPage() {
         </div>
 
         {/* TEAMS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {squads.map((sq,i)=>{
             const spent = (room?.purse_lakhs||0) - sq.purse_remaining_lakhs
             const filteredPlayers = filter==='all' ? sq.players
               : filter==='overseas' ? sq.players.filter(p=>p.player?.is_overseas)
               : sq.players.filter(p=>p.player?.role===filter)
+            const roundGroups = filteredPlayers.reduce((acc, pick) => {
+              const key = pick.lot?.is_unsold_round ? 'unsold' : 'main'
+              if (!acc[key]) acc[key] = []
+              acc[key].push(pick)
+              return acc
+            }, {})
+            const roundSections = [
+              { key: 'main', title: 'Main Round' },
+              { key: 'unsold', title: 'Unsold Round' },
+            ].filter(section => (roundGroups[section.key] || []).length > 0)
             return (
-              <div key={sq.id} className="rounded-2xl overflow-hidden transition-all duration-300 anim-1" style={{border:`0.5px solid rgba(255,255,255,0.08)`,background:'#13131f',animationDelay:`${i*0.06}s`}}>
+              <div key={sq.id} className="rounded-2xl overflow-hidden transition-all duration-300 anim-1" style={{border:`0.5px solid rgba(255,255,255,0.08)`,background:'#13131f',animationDelay:`${i*0.06}s`, boxShadow:'0 10px 30px rgba(0,0,0,0.18)'}}>
                 {/* TEAM HEADER */}
                 <div className="p-6 relative overflow-hidden" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
                   <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 pointer-events-none" style={{background:sq.color,filter:'blur(30px)',transform:'translate(30%,-30%)'}}/>
@@ -122,23 +179,53 @@ export default function SquadsPage() {
                 <div className="max-h-72 overflow-y-auto">
                   {filteredPlayers.length===0
                     ? <div className="py-6 text-center text-muted text-xs">No players for this filter</div>
-                    : filteredPlayers.map((pick,j)=>(
-                      <div key={pick.id} className="flex items-center gap-3 px-4 py-2.5 transition-colors" style={{borderBottom:j<filteredPlayers.length-1?'0.5px solid rgba(255,255,255,0.04)':'none'}}
-                           onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.03)'}
-                           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                        <span className="text-xs w-5 flex-shrink-0">{pick.player?.role==='batsman'?'🏏':pick.player?.role==='bowler'?'🎳':pick.player?.role==='allrounder'?'🔄':pick.player?.role==='wicketkeeper'?'🥊':pick.player?.role==='raider'?'⚡':pick.player?.role==='defender'?'🛡️':'⚽'}</span>
-                        <span className="text-sm flex-1 min-w-0 truncate">{pick.player?.name}</span>
-                        <span className="text-base flex-shrink-0">{FLAGS[pick.player?.country]||'🌍'}</span>
-                        <span className="font-mono text-xs flex-shrink-0 font-bold text-gold">{fmt(pick.price_paid_lakhs)}</span>
-                      </div>
-                    ))
+                    : roundSections.map(({ key, title }) => {
+                      const picksInRound = [...(roundGroups[key] || [])].sort(
+                        (a, b) => (b.lot?.lot_number || 0) - (a.lot?.lot_number || 0)
+                      )
+                      return (
+                        <div key={key}>
+                          <div className="sticky top-0 z-[1] px-4 py-2 text-[10px] tracking-[2px] uppercase font-semibold"
+                               style={{background:'rgba(7,7,14,0.9)',color:'#F2A623',borderTop:'0.5px solid rgba(255,255,255,0.06)',borderBottom:'0.5px solid rgba(255,255,255,0.06)'}}>
+                            {title} · Latest First
+                          </div>
+                          {picksInRound.map((pick,j)=>(
+                            <div key={pick.id} className="flex items-center gap-3 px-4 py-2.5 transition-colors" style={{borderBottom:j<picksInRound.length-1?'0.5px solid rgba(255,255,255,0.04)':'none'}}
+                                 onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.03)'}
+                                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                              <span className="text-xs w-5 flex-shrink-0">{roleIcon(pick.player?.role)}</span>
+                              <span className="text-sm flex-1 min-w-0 truncate">{pick.player?.name}</span>
+                              <span className="text-base flex-shrink-0">{FLAGS[pick.player?.country]||'🌍'}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{background:'rgba(255,255,255,0.06)',color:'#7A7870'}}>
+                                #{pick.lot?.lot_number || '—'}
+                              </span>
+                              <span className="font-mono text-xs flex-shrink-0 font-bold text-gold">{fmt(pick.price_paid_lakhs)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })
                   }
                 </div>
 
                 {/* FOOTER */}
                 <div className="p-3 flex gap-2" style={{borderTop:'0.5px solid rgba(255,255,255,0.07)'}}>
-                  <Link to={`/export/${code}`} className="flex-1 py-2 rounded-lg text-center text-xs font-bold no-underline transition-all" style={{background:'rgba(242,166,35,0.08)',color:'#F2A623',border:'0.5px solid rgba(242,166,35,0.2)'}}>📊 Export</Link>
-                  <Link to={`/analysis/${code}`} className="flex-1 py-2 rounded-lg text-center text-xs font-bold no-underline transition-all" style={{background:'rgba(76,175,125,0.08)',color:'#4CAF7D',border:'0.5px solid rgba(76,175,125,0.2)'}}>🤖 Analyse</Link>
+                  <button
+                    onClick={() => goTo(`/export/${code}`, 'export')}
+                    disabled={busyAction !== ''}
+                    className="flex-1 py-2 rounded-lg text-center text-xs font-bold transition-all"
+                    style={{background:'rgba(242,166,35,0.08)',color:'#F2A623',border:'0.5px solid rgba(242,166,35,0.2)', opacity: busyAction !== '' && busyAction !== 'export' ? 0.6 : 1}}
+                  >
+                    {busyAction === 'export' ? '⏳ Opening…' : '📊 Export'}
+                  </button>
+                  <button
+                    onClick={() => goTo(`/analysis/${code}`, 'analysis')}
+                    disabled={busyAction !== ''}
+                    className="flex-1 py-2 rounded-lg text-center text-xs font-bold transition-all"
+                    style={{background:'rgba(76,175,125,0.08)',color:'#4CAF7D',border:'0.5px solid rgba(76,175,125,0.2)', opacity: busyAction !== '' && busyAction !== 'analysis' ? 0.6 : 1}}
+                  >
+                    {busyAction === 'analysis' ? '⏳ Opening…' : '🤖 Analyse'}
+                  </button>
                 </div>
               </div>
             )

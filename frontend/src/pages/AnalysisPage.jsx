@@ -43,7 +43,7 @@ export default function AnalysisPage() {
     const iv = setInterval(() => { si++; setStepIdx(si); setPct(Math.min(90, si*20)); if(si>=STEPS.length) clearInterval(iv) }, 1800)
 
     try {
-      // Securely call the backend, which in turn calls the Anthropic API.
+      // Securely call the backend, which in turn calls the Gemini API.
       // This avoids exposing the API key on the client-side.
       const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/analysis/${code}`, {
         method: 'POST',
@@ -60,12 +60,15 @@ export default function AnalysisPage() {
       setTimeout(() => { setAnalysis(parsed); setPhase('results') }, 800);
     } catch(e) {
       clearInterval(iv);
-      setError(e.message || 'Analysis failed. Check the backend server and your Anthropic API key.');
+      setError(e.message || 'Analysis failed. Check the backend server and your Gemini API key.');
       setPhase('error');
     }
   }
 
   const rank1 = analysis?.ranked_teams?.[0]
+  const generatedBy = analysis?.generated_by || 'unknown'
+  const participantCount = analysis?.participant_team_count || analysis?.ranked_teams?.length || 0
+  const isGemini = String(generatedBy).startsWith('gemini:')
   const rankBadge = [null,'🥇','🥈','🥉']
   const predictColor = { 'Top 2':'#4CAF7D', 'Playoffs':'#F2A623', 'Top Half':'#F2A623', 'Bottom Half':'#7A7870', 'Last Place':'#D85A30' }
 
@@ -93,8 +96,8 @@ export default function AnalysisPage() {
               <div className="absolute inset-[-24px] rounded-full" style={{border:'1px solid rgba(76,175,125,0.08)',animation:'ringPulse 2s 0.5s ease infinite'}}/>
             </div>
             <div className="text-center">
-              <h2 className="font-bebas text-5xl tracking-[3px] mb-2">Claude is<br/><span className="text-emerald">Analysing</span></h2>
-              <p className="text-muted text-sm max-w-sm">Sending all {room?.room_teams?.length||0} squads to Claude AI for deep squad intelligence analysis.</p>
+              <h2 className="font-bebas text-5xl tracking-[3px] mb-2">Gemini is<br/><span className="text-emerald">Analysing</span></h2>
+              <p className="text-muted text-sm max-w-sm">Evaluating all final squads with Gemini to generate team rankings and expert comments.</p>
             </div>
             <div className="flex items-center gap-6 w-full max-w-lg">
               <div className="flex-1 space-y-2">
@@ -117,7 +120,7 @@ export default function AnalysisPage() {
               <div className="text-5xl mb-4">❌</div>
               <h2 className="font-bebas text-3xl tracking-[3px] text-crimson mb-3">Analysis Failed</h2>
               <p className="text-muted text-sm mb-6">{error}</p>
-              <p className="text-xs text-muted mb-6">Make sure your Anthropic API key is set in frontend/.env</p>
+              <p className="text-xs text-muted mb-6">Make sure your Gemini API key is set in `backend/.env` as `GEMINI_API_KEY`.</p>
               <Link to={`/squads/${code}`} className="btn-outline no-underline">← Back to Squads</Link>
             </div>
           </div>
@@ -127,10 +130,15 @@ export default function AnalysisPage() {
         {phase==='results' && analysis && (
           <div>
             <div className="text-xs tracking-[3px] uppercase flex items-center gap-3 mb-2 anim-1" style={{color:'#4CAF7D'}}>
-              Claude AI · Squad Intelligence<div className="flex-1 h-px" style={{background:'rgba(76,175,125,0.2)'}}/>
+              Gemini · Squad Intelligence<div className="flex-1 h-px" style={{background:'rgba(76,175,125,0.2)'}}/>
             </div>
+            <div className="mb-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] tracking-[1px] uppercase"
+                 style={{background:isGemini?'rgba(76,175,125,0.12)':'rgba(242,166,35,0.12)',border:isGemini?'0.5px solid rgba(76,175,125,0.3)':'0.5px solid rgba(242,166,35,0.3)',color:isGemini?'#6DCFA0':'#F2A623'}}>
+              {isGemini ? `Live AI: ${generatedBy}` : `Fallback Mode: ${generatedBy}`}
+            </div>
+            <div className="mb-3 text-xs text-muted">Room: <span className="text-white font-mono">{analysis?.room_code || code?.toUpperCase()}</span> · Participating teams analysed: <span className="text-gold">{participantCount}</span></div>
             <h1 className="font-bebas text-5xl tracking-[3px] mb-1 anim-2">Team <span style={{color:'#4CAF7D'}}>Rankings</span></h1>
-            <p className="text-muted text-sm mb-8 anim-3">Claude analysed all squads across 8 dimensions: batting depth, bowling variety, overseas optimization, XI flexibility, player form and budget efficiency.</p>
+            <p className="text-muted text-sm mb-8 anim-3">Gemini analysed every picked player using last-season and current-form performance, then ranked teams on balance, depth, quality, and budget efficiency.</p>
 
             {/* WINNER BANNER */}
             {rank1 && (
@@ -173,9 +181,9 @@ export default function AnalysisPage() {
 
             {/* FULL RANKINGS */}
             <div className="font-bebas text-3xl tracking-[3px] mb-5">Full Team Rankings</div>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {analysis.ranked_teams?.map((team, i) => (
-                <div key={i} className="rounded-2xl overflow-hidden transition-all hover:translate-x-1 anim-1" style={{background:'#13131f',border:`0.5px solid ${i===0?'rgba(242,166,35,0.35)':i===1?'rgba(192,192,192,0.25)':i===2?'rgba(205,127,50,0.25)':'rgba(255,255,255,0.07)'}`,animationDelay:`${i*0.07}s`}}>
+                <div key={i} className="rounded-2xl overflow-hidden transition-all hover:translate-x-1 anim-1" style={{background:'#13131f',border:`0.5px solid ${i===0?'rgba(242,166,35,0.35)':i===1?'rgba(192,192,192,0.25)':i===2?'rgba(205,127,50,0.25)':'rgba(255,255,255,0.07)'}`,animationDelay:`${i*0.07}s`, boxShadow:'0 12px 34px rgba(0,0,0,0.2)'}}>
                   <div className="flex items-center gap-4 p-5" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{background:i===0?'rgba(242,166,35,0.12)':i===1?'rgba(192,192,192,0.1)':i===2?'rgba(205,127,50,0.1)':'rgba(255,255,255,0.04)',border:`0.5px solid ${i===0?'rgba(242,166,35,0.35)':i===1?'rgba(192,192,192,0.25)':i===2?'rgba(205,127,50,0.25)':'rgba(255,255,255,0.1)'}`}}>
                       {rankBadge[team.rank]||<span className="font-bebas text-xl text-muted">{team.rank}</span>}
@@ -238,6 +246,3 @@ export default function AnalysisPage() {
     </div>
   )
 }
-
-
-

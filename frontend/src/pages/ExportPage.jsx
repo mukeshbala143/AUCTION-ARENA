@@ -8,7 +8,7 @@ const fmt = l => l>=100?`₹${(l/100).toFixed(0)} Cr`:`₹${l} L`
 
 export default function ExportPage() {
   const { code } = useParams()
-  const { user } = useStore()
+  const { user, profile } = useStore()
   const [room, setRoom] = useState(null)
   const [squads, setSquads] = useState([])
   const [mySquad, setMySquad] = useState(null)
@@ -16,19 +16,32 @@ export default function ExportPage() {
   const [sport, setSport] = useState('ipl')
   const [activeTeam, setActiveTeam] = useState(0)
 
-  useEffect(() => { load() }, [code])
+  useEffect(() => { load() }, [code, user?.id])
 
   const load = async () => {
+    setMySquad(null)
     const { data: room } = await supabase.from('rooms').select('*').eq('code', code).single()
     if (!room) return; setRoom(room); setSport(room.sport)
-    const { data: teams } = await supabase.from('room_teams').select('*, user:users(display_name,avatar_url)').eq('room_id', room.id)
+
+    // Resolve the real logged-in user even if store hydration is late.
+    const { data: authData } = await supabase.auth.getUser()
+    const resolvedUserId = user?.id || authData?.user?.id || null
+
+    const { data: teams } = await supabase
+      .from('room_teams')
+      .select('*, user:users(display_name,avatar_url)')
+      .eq('room_id', room.id)
+      .order('joined_at', { ascending: true })
     const allSquads = await Promise.all((teams||[]).map(async t => {
       const { data: picks } = await supabase.from('squad_picks').select('*, player:players(*)').eq('team_id', t.id).order('price_paid_lakhs',{ascending:false})
       return { ...t, players: (picks||[]).map(p=>({...p.player, price_paid_lakhs:p.price_paid_lakhs})) }
     }))
-    setSquads(allSquads); setLoading(false)
-    const my = allSquads.find(s=>s.user_id===user?.id)
-    if (my) setMySquad(my)
+    setSquads(allSquads)
+
+    // Strict: My Team = team row mapped to the currently logged-in user only.
+    const mine = resolvedUserId ? allSquads.find((s) => s.user_id === resolvedUserId) : null
+    setMySquad(mine || null)
+    setLoading(false)
   }
 
   const dlAll = () => downloadAllSquads(squads, code)
@@ -90,8 +103,9 @@ export default function ExportPage() {
             <div className="font-bebas text-2xl tracking-[2px] mb-2">My Team Only</div>
             <p className="text-muted text-sm leading-relaxed mb-4">Single sheet for your team. Full player stats, prices paid and bidding details.</p>
             {mySquad&&<div className="flex flex-wrap gap-1.5 mb-4"><span className="text-[10px] px-2 py-0.5 rounded font-bold" style={{background:'rgba(242,166,35,0.1)',color:'#F2A623',border:'0.5px solid rgba(242,166,35,0.2)'}}>{mySquad.team_name}</span><span className="text-[10px] px-2 py-0.5 rounded font-bold" style={{background:'rgba(242,166,35,0.08)',color:'#F2A623',border:'0.5px solid rgba(242,166,35,0.15)'}}>{mySquad.squad_count} players</span></div>}
+            {!mySquad && <div className="text-xs text-muted mb-4">No team is linked to this logged-in account in room <span className="font-mono text-white">{code?.toUpperCase()}</span>.</div>}
             <div className="text-muted text-xs mb-4">📄 1 sheet · .xlsx format</div>
-            <button onClick={dlMine} disabled={!mySquad} className="btn-gold w-full justify-center text-sm">⬇ Download My Team</button>
+            <button onClick={dlMine} disabled={!mySquad} className="btn-gold w-full justify-center text-sm">{mySquad ? '⬇ Download My Team' : 'No Team Found'}</button>
           </div>
 
           {/* CSV */}

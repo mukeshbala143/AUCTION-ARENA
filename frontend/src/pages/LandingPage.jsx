@@ -103,7 +103,7 @@ export default function LandingPage() {
           BID.<br/><span className="text-gold">WIN.</span><br/>
           <span style={{WebkitTextStroke:'2px rgba(242,166,35,0.55)',color:'transparent'}}>DOMINATE.</span>
         </h1>
-        <p className="text-muted text-base sm:text-lg max-w-lg mt-6 leading-relaxed anim-3">Host live IPL-style auctions with friends. Real bidding, AI announcer, Claude analysis — just like the pros.</p>
+        <p className="text-muted text-base sm:text-lg max-w-lg mt-6 leading-relaxed anim-3">Host live IPL-style auctions with friends. Real bidding, AI announcer, Gemini analysis — just like the pros.</p>
         <div className="flex gap-4 mt-10 flex-wrap justify-center anim-4">
           <Link to="/login" className="btn-gold no-underline" style={{padding:'0.95rem 2.4rem',fontSize:'0.9rem'}}>Start Auction →</Link>
           <a href="#sports" className="btn-outline">Explore Arenas</a>
@@ -201,7 +201,10 @@ export default function LandingPage() {
 
       <footer className="relative z-10 border-t px-10 py-6 flex items-center justify-between flex-wrap gap-4" style={{borderColor:'rgba(255,255,255,0.07)'}}>
         <span className="font-bebas text-xl tracking-[4px] text-gold">AUCTION ARENA</span>
-        <span className="text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
+        <div className="text-center">
+          <span className="block text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
+          <span className="block text-muted text-[11px] mt-1">Developed by Subrata Bala & Mukesh Bala</span>
+        </div>
         <div className="flex flex-wrap justify-center gap-4 sm:gap-6">{['Privacy','Terms','Contact', 'Admin'].map(l=><Link key={l} to={l === 'Admin' ? '/admin' : '#'} className="text-muted text-xs hover:text-gold transition-colors no-underline">{l}</Link>)}</div>
       </footer>
     </div>
