@@ -17,6 +17,12 @@ export default function DashboardPage() {
   const { user, profile, setProfile } = useStore()
   const navigate = useNavigate()
   const [rooms, setRooms] = useState([])
+  const [quickStats, setQuickStats] = useState([
+    ['0', 'Auctions Played'],
+    ['0', 'Finished Rooms'],
+    ['0', 'Active Rooms'],
+    ['0', 'Players Bought'],
+  ])
   const [greeting, setGreeting] = useState('Good Evening')
 
   // States for Modal and Feedbacks
@@ -46,15 +52,35 @@ export default function DashboardPage() {
     if (!profile) {
       supabase.from('users').select('*').eq('id', user.id).single().then(({ data }) => { if (data) setProfile(data) })
     }
-    
+
     // Fetch user's recent rooms
     supabase.from('room_teams').select('room_id,rooms(code,sport,status,created_at,room_name)')
       .eq('user_id', user.id).order('joined_at',{ascending:false}).limit(5)
       .then(({ data }) => setRooms(data||[]))
 
+    // Fetch real dashboard stats
+    supabase
+      .from('room_teams')
+      .select('id,squad_count,rooms(status)')
+      .eq('user_id', user.id)
+      .then((teamsRes) => {
+      const teams = teamsRes.data || []
+      const played = teams.length
+      const finished = teams.filter((t) => t.rooms?.status === 'finished').length
+      const active = teams.filter((t) => t.rooms?.status === 'active' || t.rooms?.status === 'unsold_round').length
+      const bought = teams.reduce((sum, t) => sum + (t.squad_count || 0), 0)
+
+      setQuickStats([
+        [played.toLocaleString(), 'Auctions Played'],
+        [finished.toLocaleString(), 'Finished Rooms'],
+        [active.toLocaleString(), 'Active Rooms'],
+        [bought.toLocaleString(), 'Players Bought'],
+      ])
+    })
+
     // Fetch last 5 feedbacks from Database
     fetchFeedbacks()
-  }, [user])
+  }, [user, profile, setProfile])
 
   const fetchFeedbacks = async () => {
     const { data, error } = await supabase
@@ -202,44 +228,44 @@ export default function DashboardPage() {
       <div className="orb" style={{width:500,height:500,background:'rgba(216,90,48,0.05)',bottom:'5%',left:-160}}/>
 
       {/* NAV */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-4 flex items-center justify-between" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
-        <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
-        <div className="flex items-center gap-3">
+      <nav className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 md:px-8 py-3 sm:py-4 flex items-center justify-between gap-2" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
+        <span className="font-bebas text-lg sm:text-xl md:text-2xl tracking-[2px] sm:tracking-[4px] text-gold whitespace-nowrap">AUCTION<span className="text-white"> ARENA</span></span>
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {profile&&(
-            <div className="flex items-center gap-2 px-3 py-2 rounded-full" style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
-              <span className="text-xl">{profile.avatar_url||'🦁'}</span>
-              <div className="leading-none">
-                <div className="text-sm font-semibold text-white">{profile.display_name}</div>
-                <div className="text-xs text-gold mt-0.5">{profile.team_name}</div>
+            <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full min-w-0" style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
+              <span className="text-lg sm:text-xl shrink-0">{profile.avatar_url||'🦁'}</span>
+              <div className="leading-none hidden sm:block min-w-0">
+                <div className="text-xs md:text-sm font-semibold text-white truncate max-w-[130px] md:max-w-[180px]">{profile.display_name}</div>
+                <div className="text-[10px] md:text-xs text-gold mt-0.5 truncate max-w-[130px] md:max-w-[180px]">{profile.team_name}</div>
               </div>
             </div>
           )}
-          <button onClick={handleLogout} className="text-xs text-muted hover:text-crimson transition-colors px-3 py-2 rounded-lg" style={{border:'0.5px solid rgba(255,255,255,0.07)'}}>Logout</button>
+          <button onClick={handleLogout} className="text-[11px] sm:text-xs text-muted hover:text-crimson transition-colors px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg whitespace-nowrap" style={{border:'0.5px solid rgba(255,255,255,0.07)'}}>Logout</button>
         </div>
       </nav>
 
       {/* MAIN CONTENT AREA */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-8 pt-24 pb-12 flex-1">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-20 sm:pt-24 pb-10 sm:pb-12 flex-1">
         {/* GREETING */}
-        <div className="mb-10 anim-1">
+        <div className="mb-8 sm:mb-10 anim-1">
           <div className="text-xs tracking-[2px] uppercase text-gold mb-1">{greeting}</div>
-          <h1 className="font-bebas text-5xl tracking-[3px] leading-none mb-1">Welcome back, <span className="text-gold">{profile?.display_name||'Champion'}</span></h1>
-          <p className="text-muted text-sm">Team <strong className="text-white">{profile?.team_name}</strong> is ready. Choose an arena below.</p>
+          <h1 className="font-bebas text-3xl sm:text-4xl md:text-5xl tracking-[2px] sm:tracking-[3px] leading-none mb-1">Welcome back, <span className="text-gold">{profile?.display_name||'Champion'}</span></h1>
+          <p className="text-muted text-xs sm:text-sm">Team <strong className="text-white">{profile?.team_name}</strong> is ready. Choose an arena below.</p>
         </div>
 
         {/* QUICK STATS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 anim-2">
-          {[['3','Auctions Played'],['1','Auctions Won'],['0','Active Rooms'],['47','Players Bought']].map(([v,l])=>(
-            <div key={l} className="surface p-5 text-center">
-              <div className="font-bebas text-3xl tracking-[2px] text-gold">{v}</div>
-              <div className="text-xs text-muted tracking-widest uppercase mt-1">{l}</div>
+          {quickStats.map(([v,l])=>(
+            <div key={l} className="surface p-4 sm:p-5 text-center">
+              <div className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold">{v}</div>
+              <div className="text-[10px] sm:text-xs text-muted tracking-widest uppercase mt-1">{l}</div>
             </div>
           ))}
         </div>
 
         {/* SPORT CARDS */}
         <div className="text-xs tracking-[3px] uppercase text-gold flex items-center gap-3 mb-2">Pick Your Arena<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/></div>
-        <h2 className="font-bebas text-4xl tracking-[3px] mb-8">Select a Sport</h2>
+        <h2 className="font-bebas text-3xl sm:text-4xl tracking-[2px] sm:tracking-[3px] mb-6 sm:mb-8">Select a Sport</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14 anim-3">
           {SPORTS.map(s=>(
             <div key={s.id} className="group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer" style={{background:'#13131f',border:`0.5px solid rgba(255,255,255,0.08)`,minHeight:340}}
@@ -247,10 +273,10 @@ export default function DashboardPage() {
                  onMouseLeave={e=>{e.currentTarget.style.border='0.5px solid rgba(255,255,255,0.08)';e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='none'}}>
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{background:`radial-gradient(ellipse at 80% 10%,${s.glow},transparent 60%)`}}/>
               <div className="absolute top-4 right-6 font-bebas text-7xl opacity-[0.05] text-white pointer-events-none leading-none">{s.icon}</div>
-              <div className="relative z-10 p-7 flex flex-col h-full">
+              <div className="relative z-10 p-5 sm:p-7 flex flex-col h-full">
                 <span className="text-4xl mb-4 block">{s.icon}</span>
                 <span className="text-xs tracking-[2px] uppercase font-bold px-2 py-1 rounded mb-3 w-fit" style={{background:s.glow,color:s.color,border:`0.5px solid ${s.border}`}}>{s.name}</span>
-                <h3 className="font-bebas text-2xl tracking-[2px] mb-3">{s.full}</h3>
+                <h3 className="font-bebas text-xl sm:text-2xl tracking-[2px] mb-3">{s.full}</h3>
                 <div className="flex gap-4 mt-auto pt-4 mb-4" style={{borderTop:'0.5px solid rgba(255,255,255,0.07)'}}>
                   {s.stats.map(([v,l])=>(
                     <div key={l}>
@@ -260,8 +286,8 @@ export default function DashboardPage() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <Link to={`/create-room?sport=${s.id}`} className="flex-1 py-2.5 rounded-lg text-center text-xs font-bold tracking-widest uppercase no-underline transition-all hover:brightness-110" style={{background:s.color,color:'#07070e'}}>Create Room</Link>
-                  <Link to="/join" className="flex-1 py-2.5 rounded-lg text-center text-xs font-semibold text-muted hover:text-white transition-colors no-underline" style={{border:'0.5px solid rgba(255,255,255,0.1)',background:'transparent'}}>Join Room</Link>
+                  <Link to={`/create-room?sport=${s.id}`} className="flex-1 py-2.5 rounded-lg text-center text-[11px] sm:text-xs font-bold tracking-wide sm:tracking-widest uppercase no-underline transition-all hover:brightness-110" style={{background:s.color,color:'#07070e'}}>Create Room</Link>
+                  <Link to="/join" className="flex-1 py-2.5 rounded-lg text-center text-[11px] sm:text-xs font-semibold text-muted hover:text-white transition-colors no-underline" style={{border:'0.5px solid rgba(255,255,255,0.1)',background:'transparent'}}>Join Room</Link>
                 </div>
               </div>
             </div>
@@ -271,8 +297,8 @@ export default function DashboardPage() {
         {/* RECENT ROOMS */}
         <div className="anim-4 mb-16">
           <div className="text-xs tracking-[3px] uppercase text-gold flex items-center gap-3 mb-2">History<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/></div>
-          <h2 className="font-bebas text-3xl tracking-[3px] mb-5">Your Recent Rooms</h2>
-          <div className="surface overflow-hidden">
+          <h2 className="font-bebas text-2xl sm:text-3xl tracking-[2px] sm:tracking-[3px] mb-5">Your Recent Rooms</h2>
+          <div className="surface overflow-hidden hidden md:block">
             <div className="grid gap-0" style={{gridTemplateColumns:'1fr 90px 90px 110px 120px'}}>
               {['Room Code','Sport','Teams','Status','Action'].map(h=>(
                 <div key={h} className="px-5 py-3 text-xs tracking-widest uppercase text-muted" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>{h}</div>
@@ -310,23 +336,56 @@ export default function DashboardPage() {
               )
             })}
           </div>
+          <div className="md:hidden space-y-3">
+            {rooms.length === 0 && (
+              <div className="surface py-10 text-center text-muted text-sm">
+                <div className="text-3xl mb-3">🏟️</div>
+                <p>No rooms yet. Create one above to get started!</p>
+              </div>
+            )}
+            {rooms.map((r, i) => {
+              const room = r.rooms; if (!room) return null
+              const sc = SC[room.status] || SC.waiting
+              return (
+                <div key={i} className="surface p-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{background:sColor[room.sport]||'#888'}}/>
+                        <span className="font-mono font-bold tracking-[2px] text-sm">{room.code}</span>
+                      </div>
+                      <div className="text-xs text-muted mt-1 capitalize">{room.sport==='ipl'?'IPL':room.sport==='kabaddi'?'Kabaddi':'Football'}</div>
+                    </div>
+                    <span className="text-[10px] px-2 py-1 rounded font-bold tracking-widest uppercase shrink-0" style={{background:sc.bg,color:sc.c}}>{sc.l}</span>
+                  </div>
+                  <Link
+                    to={room.status==='finished'?`/squads/${room.code}`:`/lobby/${room.code}`}
+                    className="block w-full text-center text-xs font-bold no-underline rounded-lg px-3 py-2"
+                    style={{background:'rgba(242,166,35,0.12)', border:'0.5px solid rgba(242,166,35,0.4)', color:'#F2A623'}}
+                  >
+                    {room.status==='finished'?'View Squads →':'Rejoin →'}
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* FEEDBACK SECTION */}
-        <div className="relative z-10 w-full mt-16 mb-8 flex flex-col items-center">
+        <div className="relative z-10 w-full mt-12 sm:mt-16 mb-8 flex flex-col items-center">
           <h3 className="font-bebas text-2xl tracking-[3px] text-gold mb-4 uppercase">Share Your Experience</h3>
-          <div className="w-full max-w-2xl px-4">
-            <form onSubmit={handleFeedbackSubmit} className="flex items-center gap-3 w-full">
+          <div className="w-full max-w-2xl px-0 sm:px-4">
+            <form onSubmit={handleFeedbackSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
               <input 
                 type="text" 
                 placeholder="Give us your feedback..." 
                 value={newFeedback}
                 onChange={(e) => setNewFeedback(e.target.value)}
                 disabled={isSubmittingFeedback}
-                className="flex-1 px-6 py-3 text-base text-white rounded-xl outline-none transition-all shadow-md focus:border-gold disabled:opacity-50"
+                className="flex-1 px-4 sm:px-6 py-3 text-sm sm:text-base text-white rounded-xl outline-none transition-all shadow-md focus:border-gold disabled:opacity-50"
                 style={{background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.12)'}}
               />
-              <button type="submit" disabled={isSubmittingFeedback} className="px-8 py-3 text-sm font-bold uppercase tracking-widest rounded-xl transition-all shadow-md hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed" style={{background:'linear-gradient(135deg, #F2A623, #D85A30)', color:'#07070e'}}>
+              <button type="submit" disabled={isSubmittingFeedback} className="w-full sm:w-auto px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-widest rounded-xl transition-all shadow-md hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed" style={{background:'linear-gradient(135deg, #F2A623, #D85A30)', color:'#07070e'}}>
                 {isSubmittingFeedback ? '⏳ Sending...' : 'Send Feedback'}
               </button>
             </form>
@@ -337,15 +396,15 @@ export default function DashboardPage() {
 
       {/* FEEDBACK MARQUEE (SCROLLING TICKER) */}
       {feedbacks.length > 0 && (
-        <div className="relative z-10 w-full overflow-hidden flex items-center py-4 mt-auto" style={{borderTop:'1px solid rgba(255,255,255,0.04)', borderBottom:'1px solid rgba(255,255,255,0.04)', background:'rgba(0,0,0,0.4)'}}>
+        <div className="relative z-10 w-full overflow-hidden flex items-center py-3 sm:py-4 mt-auto" style={{borderTop:'1px solid rgba(255,255,255,0.04)', borderBottom:'1px solid rgba(255,255,255,0.04)', background:'rgba(0,0,0,0.4)'}}>
           <div className="animate-marquee gap-12 flex">
             {feedbacks.map((fb, idx) => (
-              <span key={`${fb.id}-${idx}`} className="text-base">
+              <span key={`${fb.id}-${idx}`} className="text-sm sm:text-base">
                 <span className="text-gold font-bold">{fb.user_name}:</span> <span className="text-white/80">{fb.text}</span>
               </span>
             ))}
             {feedbacks.map((fb, idx) => (
-              <span key={`dup-${fb.id}-${idx}`} className="text-base">
+              <span key={`dup-${fb.id}-${idx}`} className="text-sm sm:text-base">
                 <span className="text-gold font-bold">{fb.user_name}:</span> <span className="text-white/80">{fb.text}</span>
               </span>
             ))}
@@ -354,10 +413,10 @@ export default function DashboardPage() {
       )}
 
       {/* FOOTER */}
-      <footer className="relative z-10 px-10 py-6 flex items-center justify-between flex-wrap gap-4 mt-4 bg-black/20">
-        <span className="font-bebas text-xl tracking-[4px] text-gold">AUCTION ARENA</span>
+      <footer className="relative z-10 px-4 sm:px-6 md:px-10 py-5 sm:py-6 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 mt-4 bg-black/20">
+        <span className="font-bebas text-lg sm:text-xl tracking-[3px] sm:tracking-[4px] text-gold">AUCTION ARENA</span>
         <span className="text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
-        <div className="flex gap-6">
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
           <button onClick={() => setActiveModal('privacy')} className="text-muted text-xs hover:text-gold transition-colors">Privacy</button>
           <button onClick={() => setActiveModal('terms')} className="text-muted text-xs hover:text-gold transition-colors">Terms</button>
           <button onClick={() => setActiveModal('contact')} className="text-muted text-xs hover:text-gold transition-colors">Contact</button>
@@ -366,18 +425,18 @@ export default function DashboardPage() {
 
       {/* POPUP MODALS */}
       {activeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)'}}>
+        <div className="fixed inset-0 z-[100] flex items-start md:items-center justify-center p-3 sm:p-4 overflow-y-auto" style={{background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)'}}>
           
           <div 
-            className={`relative w-full ${activeModal === 'contact' ? 'max-w-4xl' : 'max-w-lg'} rounded-xl p-8 overflow-hidden transform transition-all`} 
+            className={`relative w-full ${activeModal === 'contact' ? 'max-w-4xl' : 'max-w-lg'} rounded-xl p-5 sm:p-8 overflow-hidden transform transition-all my-6 max-h-[90vh] overflow-y-auto custom-scrollbar`} 
             style={{background:'#111118', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 25px 50px -12px rgba(0, 0, 0, 0.8)'}}
           >
-            <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 text-muted hover:text-white text-2xl leading-none">&times;</button>
+            <button onClick={() => setActiveModal(null)} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-muted hover:text-white text-2xl leading-none h-9 w-9 grid place-items-center rounded-lg" aria-label="Close modal">&times;</button>
             
             {/* PRIVACY POLICY MODAL */}
             {activeModal === 'privacy' && (
               <div>
-                <h3 className="font-bebas text-3xl tracking-[2px] text-gold mb-4 uppercase">Privacy Policy</h3>
+                <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">Privacy Policy</h3>
                 <div className="text-muted text-sm space-y-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
                   <p>Your privacy is important to us. This policy explains how we collect, use, and protect your data.</p>
                   <p><strong>1. Data Collection:</strong> We collect only essential profile information like your display name, team name, and email for authentication via Supabase.</p>
@@ -390,7 +449,7 @@ export default function DashboardPage() {
             {/* TERMS & CONDITIONS MODAL */}
             {activeModal === 'terms' && (
               <div>
-                <h3 className="font-bebas text-3xl tracking-[2px] text-gold mb-4 uppercase">Terms & Conditions</h3>
+                <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">Terms & Conditions</h3>
                 <div className="text-muted text-sm space-y-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
                   <p>By using Auction Arena, you agree to the following terms:</p>
                   <p><strong>1. Fair Play:</strong> Users are expected to maintain fair play. Abuse of the auction system or exploitation of bugs is prohibited.</p>
@@ -402,12 +461,12 @@ export default function DashboardPage() {
 
             {/* CONTACT US MODAL */}
             {activeModal === 'contact' && (
-              <div className="flex flex-col md:flex-row gap-10">
+              <div className="flex flex-col md:flex-row gap-6 sm:gap-10">
                 
                 {/* Left Side: Contact Info */}
                 <div className="flex-1 flex flex-col justify-center">
-                  <h3 className="font-bebas text-4xl tracking-[2px] text-gold mb-2">CONTACT US</h3>
-                  <p className="text-sm text-muted mb-8 leading-relaxed">Have questions? Need support? We're here to help. Reach out to us through any channel below or use the form.</p>
+                  <h3 className="font-bebas text-3xl sm:text-4xl tracking-[2px] text-gold mb-2">CONTACT US</h3>
+                  <p className="text-sm text-muted mb-6 sm:mb-8 leading-relaxed">Have questions? Need support? We're here to help. Reach out to us through any channel below or use the form.</p>
 
                   <div className="space-y-6">
                     <div>
@@ -434,7 +493,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right Side: Functional Form */}
-                <div className="relative flex-[1.2] p-6 rounded-xl" style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>
+                <div className="relative flex-[1.2] p-4 sm:p-6 rounded-xl" style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>
                   
                   {/* GLASSMORPHISM SUCCESS POPUP OVERLAY */}
                   {showContactThankYou && (
