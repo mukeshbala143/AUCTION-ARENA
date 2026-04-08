@@ -46,12 +46,23 @@ export default function JoinRoomPage() {
   const joinRoom = async () => {
     if (!room || !user) return
     setLoading(true)
-    const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/rooms/${room.code}/join`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ userId: user.id })
-    })
-    if (res.ok) navigate(`/lobby/${room.code}`)
-    else { const d = await res.json(); setError(d.error||'Failed to join'); setLoading(false) }
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/rooms/${room.code}/join`,{
+        method:'POST', 
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ userId: user.id })
+      })
+      if (res.ok) {
+        navigate(`/lobby/${room.code}`)
+      } else { 
+        const d = await res.json()
+        setError(d.error||'Failed to join')
+        setLoading(false) 
+      }
+    } catch {
+      setError('Could not connect to server.')
+      setLoading(false)
+    }
   }
 
   const sportIcon = { ipl:'🏏', kabaddi:'🤼', football:'⚽' }
@@ -65,10 +76,15 @@ export default function JoinRoomPage() {
 
       <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-4 flex items-center justify-between" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
         <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
-        <Link to="/dashboard" className="text-muted text-sm hover:text-gold transition-colors no-underline">← Dashboard</Link>
       </nav>
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md mt-16">
+        
+        {/* BACK BUTTON */}
+        <Link to="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-muted hover:text-gold transition-colors mb-6 anim-1">
+          <span className="text-lg leading-none">←</span> Back to Dashboard
+        </Link>
+
         <div className="text-xs tracking-[3px] uppercase text-gold mb-3 flex items-center gap-3 anim-1">
           Join a Room<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/>
         </div>
@@ -87,7 +103,8 @@ export default function JoinRoomPage() {
                 </div>
               ))}
             </div>
-            <input ref={inputRef} className="opacity-0 absolute inset-0 cursor-text" maxLength={6}
+            {/* The actual hidden input taking the keystrokes */}
+            <input ref={inputRef} className="opacity-0 absolute inset-0 cursor-text w-full h-full" maxLength={6}
                    onChange={handleInput} onKeyDown={e=>e.key==='Enter'&&findRoom()}
                    value={digits.join('')} style={{caretColor:'transparent'}} autoComplete="off"/>
           </div>
@@ -99,7 +116,7 @@ export default function JoinRoomPage() {
 
         {/* Room preview */}
         {room && (
-          <div className="surface overflow-hidden anim-1">
+          <div className="surface overflow-hidden anim-1 mt-6">
             <div className="p-5 flex items-center gap-4" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
               <div className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl flex-shrink-0"
                    style={{background:'rgba(242,166,35,0.1)',border:'0.5px solid rgba(242,166,35,0.25)'}}>
@@ -133,7 +150,7 @@ export default function JoinRoomPage() {
                   <span className="font-bold">{room.room_teams?.length||0} / {room.max_teams||10} teams</span>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,0.07)'}}>
-                  <div className="h-full rounded-full" style={{width:`${((room.room_teams?.length||0)/10)*100}%`,background:'linear-gradient(90deg,#BA7517,#F2A623)'}}/>
+                  <div className="h-full rounded-full" style={{width:`${((room.room_teams?.length||0)/(room.max_teams||10))*100}%`,background:'linear-gradient(90deg,#BA7517,#F2A623)'}}/>
                 </div>
               </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom' // Added Link here
 import { supabase } from '../lib/supabase'
 import { getSocket } from '../lib/socket'
 import { useStore } from '../store'
@@ -78,6 +78,12 @@ export default function LobbyPage() {
       </nav>
 
       <div className="relative z-10 max-w-6xl mx-auto px-8 pt-24 pb-12">
+        
+        {/* BACK BUTTON */}
+        <Link to="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-muted hover:text-gold transition-colors mb-6 anim-1">
+          <span className="text-lg leading-none">←</span> Back to Dashboard
+        </Link>
+
         {/* CODE BANNER */}
         <div className="glass p-6 mb-8 flex items-center justify-between anim-1">
           <div>
