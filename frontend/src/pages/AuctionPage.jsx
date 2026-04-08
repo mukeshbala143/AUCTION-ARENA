@@ -11,7 +11,7 @@ function TimerRing({ sec }) {
   const offset = CIRC * (1 - sec / 15)
   const red = sec <= 5
   return (
-    <div className="relative w-24 h-24 mx-auto my-2">
+    <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto my-2">
       <svg className="w-full h-full" style={{transform:'rotate(-90deg)'}} viewBox="0 0 90 90">
         <circle cx="45" cy="45" r="40" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5"/>
         <circle cx="45" cy="45" r="40" fill="none"
@@ -19,7 +19,7 @@ function TimerRing({ sec }) {
           strokeDasharray={CIRC} strokeDashoffset={offset}
           strokeLinecap="round" style={{transition:'stroke-dashoffset 1s linear,stroke 0.3s'}}/>
       </svg>
-      <div className={`absolute inset-0 flex items-center justify-center font-mono text-xl font-bold ${red?'text-red-400':'text-gold'}`}
+      <div className={`absolute inset-0 flex items-center justify-center font-mono text-lg sm:text-xl font-bold ${red?'text-red-400':'text-gold'}`}
            style={{animation:red?'pulse 1s infinite':'none'}}>{sec}</div>
     </div>
   )
@@ -187,18 +187,18 @@ export default function AuctionPage() {
   const decidedCount = soldCount + unsoldCount
 
   return (
-    <div className="h-screen bg-bg flex flex-col overflow-hidden relative">
+    <div className="h-[100dvh] bg-bg flex flex-col overflow-hidden relative">
       <div className="orb" style={{width:500,height:500,background:'rgba(242,166,35,0.06)',top:-200,right:-150}}/>
 
       {/* ── TOP BAR ── */}
-      <div className="flex items-center gap-4 px-5 py-3 flex-shrink-0 relative z-10"
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 flex-shrink-0 relative z-10"
            style={{background:'rgba(7,7,14,0.95)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
-        <span className="font-bebas text-xl tracking-[3px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
-        <span className="font-mono text-xs px-2 py-0.5 rounded text-muted tracking-[2px]"
+        <span className="font-bebas text-lg sm:text-xl tracking-[2px] sm:tracking-[3px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
+        <span className="font-mono text-[10px] sm:text-xs px-2 py-0.5 rounded text-muted tracking-[2px]"
               style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>{code}</span>
 
-        <div className="flex-1 flex items-center gap-3">
-          <span className="text-xs text-muted whitespace-nowrap font-mono">
+        <div className="order-3 sm:order-none basis-full sm:basis-auto sm:flex-1 flex items-center gap-2 sm:gap-3">
+          <span className="text-[10px] sm:text-xs text-muted whitespace-nowrap font-mono">
             {decidedCount}/{total > 0 ? total : '…'}
           </span>
 
@@ -217,7 +217,7 @@ export default function AuctionPage() {
                  }}/>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{background:'rgba(76,175,125,0.12)',color:'#4CAF7D',border:'0.5px solid rgba(76,175,125,0.25)'}}>
               ✓ {soldCount} Sold
@@ -228,33 +228,33 @@ export default function AuctionPage() {
             </span>
           </div>
 
-          <span className="text-xs px-2 py-0.5 rounded font-bold tracking-widest uppercase text-gold"
+          <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded font-bold tracking-wider sm:tracking-widest uppercase text-gold"
                 style={{background:'rgba(242,166,35,0.08)',border:'0.5px solid rgba(242,166,35,0.2)'}}>
             {phase === 'unsold_round' ? 'Unsold Round' : 'Main Auction'}
           </span>
         </div>
 
-        <button onClick={() => navigate('/dashboard')} className="text-xs px-3 py-1.5 rounded-lg text-muted transition-colors"
+        <button onClick={() => navigate('/dashboard')} className="text-[10px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-lg text-muted transition-colors"
                 style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>
           ← Dashboard
         </button>
         {room?.admin_id === user?.id && (
-          <button onClick={togglePause} className="text-xs px-3 py-1.5 rounded-lg font-bold transition-colors"
+          <button onClick={togglePause} className="text-[10px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-lg font-bold transition-colors"
                   style={{background:paused?'rgba(76,175,125,0.15)':'rgba(242,166,35,0.1)',color:paused?'#4CAF7D':'#F2A623',border:`0.5px solid ${paused?'rgba(76,175,125,0.3)':'rgba(242,166,35,0.25)'}`}}>
             {paused ? '▶ Resume' : '⏸ Pause'}
           </button>
         )}
-        <button onClick={toggleMute} className="text-xs px-3 py-1.5 rounded-lg text-muted transition-colors"
+        <button onClick={toggleMute} className="text-[10px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-lg text-muted transition-colors"
                 style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>
           {muted ? '🔇 Muted' : '🔊 Sound'}
         </button>
       </div>
 
       {/* ── MAIN 3-COL LAYOUT ── */}
-      <div className="flex-1 grid overflow-hidden relative z-10" style={{gridTemplateColumns:'210px 1fr 250px'}}>
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[210px_minmax(0,1fr)_250px] overflow-hidden relative z-10">
 
         {/* LEFT SIDEBAR: TEAMS */}
-        <div className="overflow-y-auto border-r p-2 flex flex-col gap-1.5 custom-scrollbar"
+        <div className="order-2 lg:order-1 overflow-y-auto border-t lg:border-t-0 lg:border-r p-2 flex flex-col gap-1.5 custom-scrollbar max-h-48 lg:max-h-none"
              style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.2)'}}>
           <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1.5 mb-1">Teams</div>
           {teams.map((t, i) => {
@@ -295,14 +295,14 @@ export default function AuctionPage() {
         </div>
 
         {/* CENTER: PLAYER CARD */}
-        <div className="overflow-y-auto flex flex-col items-center justify-start px-6 py-5 custom-scrollbar">
+        <div className="order-1 lg:order-2 overflow-y-auto flex flex-col items-center justify-start px-3 sm:px-6 py-3 sm:py-5 custom-scrollbar">
           {!player ? (
             <div className="flex flex-col items-center justify-center h-full text-muted">
               <div className="text-5xl mb-4">⏳</div>
               <p className="font-mono text-sm tracking-widest">WAITING FOR AUCTION TO START…</p>
             </div>
           ) : (
-            <div className="glass p-6 w-full max-w-[460px] flex flex-col items-center text-center">
+            <div className="glass p-4 sm:p-6 w-full max-w-[460px] flex flex-col items-center text-center">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full pointer-events-none"
                    style={{background:`radial-gradient(circle,${rc.bg},transparent 70%)`,filter:'blur(24px)',top:-20}}/>
               
@@ -336,7 +336,7 @@ export default function AuctionPage() {
                       style={{background:'#13131f',borderRadius:'50%',padding:'2px'}}>{FLAGS[player.country]||'🌍'}</span>
               </div>
 
-              <h2 className="font-bebas text-3xl tracking-[3px] leading-none mb-1 relative z-10">{player.name}</h2>
+              <h2 className="font-bebas text-2xl sm:text-3xl tracking-[2px] sm:tracking-[3px] leading-none mb-1 relative z-10">{player.name}</h2>
 
               {/* ✅ NEW: Batting and Bowling Style Text */}
               <div className="text-[10px] uppercase tracking-[2px] text-muted mb-3 flex flex-wrap items-center justify-center gap-2 font-semibold relative z-10">
@@ -378,7 +378,7 @@ export default function AuctionPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-1.5 w-full relative z-10">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 w-full relative z-10">
                 {statFields.map(([key, label]) => (
                   <div key={key} className="rounded-lg py-2 px-1 text-center"
                        style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.07)'}}>
@@ -392,10 +392,10 @@ export default function AuctionPage() {
         </div>
 
         {/* RIGHT: BIDDING */}
-        <div className="overflow-y-auto border-l flex flex-col items-center py-5 px-4 custom-scrollbar"
+        <div className="order-3 overflow-y-auto border-t lg:border-t-0 lg:border-l flex flex-col items-center py-4 sm:py-5 px-3 sm:px-4 custom-scrollbar max-h-[48vh] lg:max-h-none"
              style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.15)'}}>
           <div className="text-[10px] tracking-[2px] uppercase text-muted mb-1">Current Bid</div>
-          <div className={`font-bebas text-5xl tracking-[2px] text-gold transition-transform ${flash ? 'scale-125' : ''}`}
+          <div className={`font-bebas text-4xl sm:text-5xl tracking-[2px] text-gold transition-transform ${flash ? 'scale-125' : ''}`}
                style={{textShadow:'0 0 50px rgba(242,166,35,0.6)',animation:'pulseGold 2s ease infinite',transition:'transform 0.3s'}}>
             {bid ? fmt(bid.amount) : '—'}
           </div>
@@ -419,20 +419,20 @@ export default function AuctionPage() {
             ) : (
               <>
                 <button onClick={() => placeBid(25)} disabled={!canBid || skipped}
-                        className="w-full py-3 rounded-xl font-bold text-bg text-xs tracking-widest uppercase transition-all disabled:opacity-40"
+                        className="w-full py-2.5 sm:py-3 rounded-xl font-bold text-bg text-[11px] sm:text-xs tracking-wide sm:tracking-widest uppercase transition-all disabled:opacity-40"
                         style={{background:'linear-gradient(135deg,#F2A623,#BA7517)',boxShadow:'0 0 20px rgba(242,166,35,0.2)'}}>
                   + ₹25 Lakhs
                 </button>
                 {(bid?.amount || 0) >= 500 && (
                   <button onClick={() => placeBid(50)} disabled={!canBid || skipped}
-                          className="w-full py-3 rounded-xl font-bold text-xs tracking-widest uppercase transition-all disabled:opacity-40"
+                          className="w-full py-2.5 sm:py-3 rounded-xl font-bold text-[11px] sm:text-xs tracking-wide sm:tracking-widest uppercase transition-all disabled:opacity-40"
                           style={{background:'rgba(216,90,48,0.15)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.35)'}}>
                     + ₹50 Lakhs
                   </button>
                 )}
                 {(bid?.amount || 0) >= 700 && (
                   <button onClick={() => placeBid(100)} disabled={!canBid || skipped}
-                          className="w-full py-3 rounded-xl font-bold text-xs tracking-widest uppercase transition-all disabled:opacity-40"
+                          className="w-full py-2.5 sm:py-3 rounded-xl font-bold text-[11px] sm:text-xs tracking-wide sm:tracking-widest uppercase transition-all disabled:opacity-40"
                           style={{background:'rgba(181,124,245,0.15)',color:'#B57CF5',border:'0.5px solid rgba(181,124,245,0.35)'}}>
                     + ₹1 Crore
                   </button>
@@ -465,9 +465,9 @@ export default function AuctionPage() {
 
       {/* ── SOLD / UNSOLD OVERLAY ── */}
       {soldOverlay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
              style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)'}}>
-          <div className="text-center p-12 rounded-3xl"
+          <div className="text-center p-6 sm:p-12 rounded-3xl w-full max-w-[400px]"
                style={{background:'#13131f',border:`1px solid ${soldOverlay.team?'rgba(76,175,125,0.4)':'rgba(216,90,48,0.4)'}`,animation:'soldPop 0.5s ease both',maxWidth:400}}>
             {soldOverlay.team ? (
               <>
@@ -506,9 +506,9 @@ export default function AuctionPage() {
 
       {/* ── PAUSE OVERLAY (non-admin) ── */}
       {paused && room?.admin_id !== user?.id && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
              style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)'}}>
-          <div className="text-center p-12 rounded-3xl"
+          <div className="text-center p-6 sm:p-12 rounded-3xl w-full max-w-[400px]"
                style={{background:'#13131f',border:'1px solid rgba(242,166,35,0.3)',maxWidth:400}}>
             <div className="text-5xl mb-4">⏸</div>
             <div className="font-bebas text-4xl tracking-[3px] text-gold mb-2">Auction Paused</div>
@@ -519,9 +519,9 @@ export default function AuctionPage() {
 
       {/* ── FINISHED OVERLAY ── */}
       {phase === 'finished' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
              style={{background:'rgba(0,0,0,0.9)',backdropFilter:'blur(8px)'}}>
-          <div className="text-center p-12 rounded-3xl"
+          <div className="text-center p-6 sm:p-12 rounded-3xl w-full max-w-[400px]"
                style={{background:'#13131f',border:'1px solid rgba(242,166,35,0.4)',maxWidth:400}}>
             <div className="text-5xl mb-3">🏆</div>
             <div className="font-bebas text-4xl tracking-[3px] text-gold mb-2">Auction Complete!</div>

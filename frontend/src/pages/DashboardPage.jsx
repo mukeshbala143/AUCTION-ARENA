@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, signOut } from '../lib/supabase'
 import { useStore } from '../store'
 
 const SPORTS = [
-  { id:'ipl', icon:'🏏', name:'IPL Cricket', full:'Indian Premier League', color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.35)', stats:[['350','Players'],['₹120Cr','Purse'],['8','Overseas']] },
-  { id:'kabaddi', icon:'🤼', name:'Pro Kabaddi', full:'Pro Kabaddi League', color:'#D85A30', glow:'rgba(216,90,48,0.12)', border:'rgba(216,90,48,0.35)', stats:[['200+','Players'],['₹4Cr','Purse'],['3','Roles']] },
-  { id:'football', icon:'⚽', name:'World Football', full:'World Football', color:'#4CAF7D', glow:'rgba(76,175,125,0.12)', border:'rgba(76,175,125,0.35)', stats:[['500+','Players'],['€200M','Budget'],['10','Positions']] },
+  { id:'ipl', icon:'🏏', name:'IPL Cricket', full:'Indian Premier League', isComingSoon:false, color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.35)', stats:[['350','Players'],['₹120Cr','Purse'],['8','Overseas']] },
+  { id:'kabaddi', icon:'🤼', name:'Pro Kabaddi', full:'Pro Kabaddi League', isComingSoon:true, color:'#D85A30', glow:'rgba(216,90,48,0.12)', border:'rgba(216,90,48,0.35)', stats:[['200+','Players'],['₹4Cr','Purse'],['3','Roles']] },
+  { id:'football', icon:'⚽', name:'World Football', full:'World Football', isComingSoon:true, color:'#4CAF7D', glow:'rgba(76,175,125,0.12)', border:'rgba(76,175,125,0.35)', stats:[['500+','Players'],['₹200M','Budget'],['10','Positions']] },
 ]
 const SC = { waiting:{bg:'rgba(242,166,35,0.1)',c:'#F2A623',l:'Waiting'}, active:{bg:'rgba(76,175,125,0.1)',c:'#4CAF7D',l:'Live'}, finished:{bg:'rgba(255,255,255,0.05)',c:'#7A7870',l:'Finished'} }
 
@@ -16,6 +16,7 @@ const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
 export default function DashboardPage() {
   const { user, profile, setProfile } = useStore()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [rooms, setRooms] = useState([])
   const [quickStats, setQuickStats] = useState([
     ['0', 'Auctions Played'],
@@ -46,6 +47,13 @@ export default function DashboardPage() {
     const h = new Date().getHours()
     setGreeting(h<12?'Good Morning':h<17?'Good Afternoon':'Good Evening')
   }, [])
+
+  useEffect(() => {
+    const modal = searchParams.get('modal')
+    if (modal === 'privacy' || modal === 'terms' || modal === 'contact') {
+      setActiveModal(modal)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (!user) return
@@ -179,6 +187,10 @@ export default function DashboardPage() {
           0% { transform: translateX(100vw); }
           100% { transform: translateX(-100%); }
         }
+        @keyframes comingSoonBlink {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 rgba(216,90,48,0); }
+          50% { opacity: 0.35; box-shadow: 0 0 18px rgba(216,90,48,0.45); }
+        }
         .animate-marquee {
           display: inline-flex;
           white-space: nowrap;
@@ -200,6 +212,9 @@ export default function DashboardPage() {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(255, 255, 255, 0.2);
+        }
+        .coming-soon-badge {
+          animation: comingSoonBlink 1.2s ease-in-out infinite;
         }
       `}</style>
 
@@ -267,15 +282,45 @@ export default function DashboardPage() {
         <div className="text-xs tracking-[3px] uppercase text-gold flex items-center gap-3 mb-2">Pick Your Arena<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/></div>
         <h2 className="font-bebas text-3xl sm:text-4xl tracking-[2px] sm:tracking-[3px] mb-6 sm:mb-8">Select a Sport</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14 anim-3">
-          {SPORTS.map(s=>(
-            <div key={s.id} className="group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer" style={{background:'#13131f',border:`0.5px solid rgba(255,255,255,0.08)`,minHeight:340}}
-                 onMouseEnter={e=>{e.currentTarget.style.border=`0.5px solid ${s.border}`;e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.boxShadow=`0 20px 60px rgba(0,0,0,0.5),0 0 50px ${s.glow}`}}
+          {SPORTS.map(s=>{
+            const isDisabled = s.isComingSoon
+            return (
+            <div key={s.id}
+                 role="button"
+                 tabIndex={isDisabled ? -1 : 0}
+                 aria-disabled={isDisabled}
+                 onClick={() => {
+                   if (!isDisabled) navigate(`/create-room?sport=${s.id}`)
+                 }}
+                 onKeyDown={(e) => {
+                   if (isDisabled) return
+                   if (e.key === 'Enter' || e.key === ' ') {
+                     e.preventDefault()
+                     navigate(`/create-room?sport=${s.id}`)
+                   }
+                 }}
+                 className="group relative rounded-2xl overflow-hidden transition-all duration-300"
+                 style={{background:'#13131f',border:`0.5px solid rgba(255,255,255,0.08)`,minHeight:340,cursor:isDisabled?'not-allowed':'pointer',opacity:isDisabled?0.78:1}}
+                 onMouseEnter={e=>{if(!isDisabled){e.currentTarget.style.border=`0.5px solid ${s.border}`;e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.boxShadow=`0 20px 60px rgba(0,0,0,0.5),0 0 50px ${s.glow}`}}}
                  onMouseLeave={e=>{e.currentTarget.style.border='0.5px solid rgba(255,255,255,0.08)';e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='none'}}>
+              {isDisabled && (
+                <div className="absolute top-4 right-4 z-20 text-[10px] tracking-[2px] uppercase font-bold px-2.5 py-1 rounded-md coming-soon-badge"
+                     style={{background:'rgba(216,90,48,0.16)',color:'#ffb89f',border:'0.5px solid rgba(216,90,48,0.5)'}}>
+                  Coming Soon
+                </div>
+              )}
+              {isDisabled && (
+                <div className="absolute inset-0 z-10 pointer-events-none" style={{background:'linear-gradient(180deg, rgba(7,7,14,0.08) 0%, rgba(7,7,14,0.45) 100%)'}} />
+              )}
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{background:`radial-gradient(ellipse at 80% 10%,${s.glow},transparent 60%)`}}/>
               <div className="absolute top-4 right-6 font-bebas text-7xl opacity-[0.05] text-white pointer-events-none leading-none">{s.icon}</div>
               <div className="relative z-10 p-5 sm:p-7 flex flex-col h-full">
                 <span className="text-4xl mb-4 block">{s.icon}</span>
                 <span className="text-xs tracking-[2px] uppercase font-bold px-2 py-1 rounded mb-3 w-fit" style={{background:s.glow,color:s.color,border:`0.5px solid ${s.border}`}}>{s.name}</span>
+                <span className="text-[10px] tracking-[2px] uppercase font-bold px-2 py-1 rounded mb-3 w-fit"
+                      style={{background:isDisabled?'rgba(216,90,48,0.1)':'rgba(76,175,125,0.1)',color:isDisabled?'#ffb89f':'#4CAF7D',border:isDisabled?'0.5px solid rgba(216,90,48,0.35)':'0.5px solid rgba(76,175,125,0.25)'}}>
+                  {isDisabled ? 'Coming Soon' : 'Live Now'}
+                </span>
                 <h3 className="font-bebas text-xl sm:text-2xl tracking-[2px] mb-3">{s.full}</h3>
                 <div className="flex gap-4 mt-auto pt-4 mb-4" style={{borderTop:'0.5px solid rgba(255,255,255,0.07)'}}>
                   {s.stats.map(([v,l])=>(
@@ -286,12 +331,19 @@ export default function DashboardPage() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <Link to={`/create-room?sport=${s.id}`} className="flex-1 py-2.5 rounded-lg text-center text-[11px] sm:text-xs font-bold tracking-wide sm:tracking-widest uppercase no-underline transition-all hover:brightness-110" style={{background:s.color,color:'#07070e'}}>Create Room</Link>
-                  <Link to="/join" className="flex-1 py-2.5 rounded-lg text-center text-[11px] sm:text-xs font-semibold text-muted hover:text-white transition-colors no-underline" style={{border:'0.5px solid rgba(255,255,255,0.1)',background:'transparent'}}>Join Room</Link>
+                  {isDisabled ? (
+                    <div className="flex-1 py-2.5 rounded-lg text-center text-[11px] sm:text-xs font-bold tracking-wide sm:tracking-widest uppercase"
+                         style={{background:'rgba(255,255,255,0.06)',color:'#7A7870',border:'0.5px solid rgba(255,255,255,0.1)'}}>
+                      Coming Soon
+                    </div>
+                  ) : (
+                    <Link to={`/create-room?sport=${s.id}`} onClick={(e) => e.stopPropagation()} className="flex-1 py-2.5 rounded-lg text-center text-[11px] sm:text-xs font-bold tracking-wide sm:tracking-widest uppercase no-underline transition-all hover:brightness-110" style={{background:s.color,color:'#07070e'}}>Create Room</Link>
+                  )}
+                  <Link to="/join" onClick={(e) => e.stopPropagation()} className="flex-1 py-2.5 rounded-lg text-center text-[11px] sm:text-xs font-semibold text-muted hover:text-white transition-colors no-underline" style={{border:'0.5px solid rgba(255,255,255,0.1)',background:'transparent'}}>Join Room</Link>
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
 
         {/* RECENT ROOMS */}
@@ -441,10 +493,14 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">Privacy Policy</h3>
                 <div className="text-muted text-sm space-y-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  <p>Your privacy is important to us. This policy explains how we collect, use, and protect your data.</p>
-                  <p><strong>1. Data Collection:</strong> We collect only essential profile information like your display name, team name, and email for authentication via Supabase.</p>
-                  <p><strong>2. Usage:</strong> Your data is solely used to maintain your session and statistics within the Auction Arena rooms.</p>
-                  <p><strong>3. Protection:</strong> We do not share your personal information with third parties. All data is securely stored.</p>
+                  <p><strong>Last updated:</strong> April 9, 2026</p>
+                  <p>Your privacy matters to us. This policy explains what information Auction Arena stores and how we use it.</p>
+                  <p><strong>1. What We Collect:</strong> We collect account details required for gameplay, such as display name, team name, avatar, login email, room activity, bids, and squad records.</p>
+                  <p><strong>2. Why We Use It:</strong> Your data is used to run auctions, show live room activity, calculate team stats, generate analysis, and improve app performance.</p>
+                  <p><strong>3. Data Sharing:</strong> We do not sell personal data. Information is only processed by required infrastructure providers (for example authentication/database and contact form delivery).</p>
+                  <p><strong>4. Data Retention:</strong> Auction and profile records may be retained to keep room history, rankings, exports, and analytics available to participating users.</p>
+                  <p><strong>5. Security:</strong> We use standard access controls and protected services, but no internet system can be guaranteed 100% secure.</p>
+                  <p><strong>6. Contact:</strong> For privacy-related questions, use the Contact form in this page.</p>
                 </div>
               </div>
             )}
@@ -454,10 +510,15 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">Terms & Conditions</h3>
                 <div className="text-muted text-sm space-y-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  <p>By using Auction Arena, you agree to the following terms:</p>
-                  <p><strong>1. Fair Play:</strong> Users are expected to maintain fair play. Abuse of the auction system or exploitation of bugs is prohibited.</p>
-                  <p><strong>2. Account:</strong> You are responsible for maintaining the confidentiality of your login credentials.</p>
-                  <p><strong>3. Modifications:</strong> We reserve the right to modify or terminate the service for any reason, without notice, at any time.</p>
+                  <p><strong>Last updated:</strong> April 9, 2026</p>
+                  <p>By using Auction Arena, you agree to these terms:</p>
+                  <p><strong>1. Fair Use:</strong> Attempting to manipulate bids, exploit bugs, or disrupt live auctions is not allowed.</p>
+                  <p><strong>2. Account Responsibility:</strong> You are responsible for activities performed through your account and for keeping login access secure.</p>
+                  <p><strong>3. Room Conduct:</strong> Hosts and participants must use respectful names/content and avoid abusive or illegal behavior.</p>
+                  <p><strong>4. Service Availability:</strong> Features may change, pause, or be removed as the product evolves.</p>
+                  <p><strong>5. Rankings & Analysis:</strong> AI insights and rankings are informational and can vary based on available squad/player data.</p>
+                  <p><strong>6. Limitation:</strong> The platform is provided "as is" without guarantees of uninterrupted operation.</p>
+                  <p><strong>7. Termination:</strong> We may restrict access for policy violations or harmful activity.</p>
                 </div>
               </div>
             )}

@@ -205,7 +205,16 @@ export default function LandingPage() {
           <span className="block text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
           <span className="block text-muted text-[11px] mt-1">Developed by Subrata Bala & Mukesh Bala</span>
         </div>
-        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">{['Privacy','Terms','Contact', 'Admin'].map(l=><Link key={l} to={l === 'Admin' ? '/admin' : '#'} className="text-muted text-xs hover:text-gold transition-colors no-underline">{l}</Link>)}</div>
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
+          {[
+            ['Privacy', '/dashboard?modal=privacy'],
+            ['Terms', '/dashboard?modal=terms'],
+            ['Contact', '/dashboard?modal=contact'],
+            ['Admin', '/admin'],
+          ].map(([label, to]) => (
+            <Link key={label} to={to} className="text-muted text-xs hover:text-gold transition-colors no-underline">{label}</Link>
+          ))}
+        </div>
       </footer>
     </div>
   )
