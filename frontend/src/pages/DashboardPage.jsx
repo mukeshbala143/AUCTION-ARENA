@@ -10,14 +10,8 @@ const SPORTS = [
 ]
 const SC = { waiting:{bg:'rgba(242,166,35,0.1)',c:'#F2A623',l:'Waiting'}, active:{bg:'rgba(76,175,125,0.1)',c:'#4CAF7D',l:'Live'}, finished:{bg:'rgba(255,255,255,0.05)',c:'#7A7870',l:'Finished'} }
 
-// Mock Feedback Data (Last 5)
-const INITIAL_FEEDBACKS = [
-  { id: 1, user: "Rahul", text: "Amazing platform for IPL auctions! 🔥" },
-  { id: 2, user: "Sneha", text: "Very smooth UI. Love it." },
-  { id: 3, user: "Amit", text: "Can't wait to play the Kabaddi arenas." },
-  { id: 4, user: "Vikram", text: "Best auction simulator out there." },
-  { id: 5, user: "Priya", text: "Needs more football players, but great effort!" }
-];
+// Aapki Nayi Web3Forms Key
+const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
 
 export default function DashboardPage() {
   const { user, profile, setProfile } = useStore()
@@ -26,9 +20,16 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState('Good Evening')
 
   // States for Modal and Feedbacks
-  const [activeModal, setActiveModal] = useState(null) // 'privacy', 'terms', 'contact'
-  const [feedbacks, setFeedbacks] = useState(INITIAL_FEEDBACKS)
+  const [activeModal, setActiveModal] = useState(null)
+  const [feedbacks, setFeedbacks] = useState([]) 
   const [newFeedback, setNewFeedback] = useState('')
+
+  // States for Form Submissions & Popups
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false)
+  const [showContactThankYou, setShowContactThankYou] = useState(false)
+  
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false)
+  const [showFeedbackThankYou, setShowFeedbackThankYou] = useState(false)
 
   useEffect(() => {
     const h = new Date().getHours()
@@ -40,30 +41,108 @@ export default function DashboardPage() {
     if (!profile) {
       supabase.from('users').select('*').eq('id', user.id).single().then(({ data }) => { if (data) setProfile(data) })
     }
+    
+    // Fetch user's recent rooms
     supabase.from('room_teams').select('room_id,rooms(code,sport,status,created_at,room_name)')
       .eq('user_id', user.id).order('joined_at',{ascending:false}).limit(5)
       .then(({ data }) => setRooms(data||[]))
+
+    // Fetch last 5 feedbacks from Database
+    fetchFeedbacks()
   }, [user])
+
+  const fetchFeedbacks = async () => {
+    const { data, error } = await supabase
+      .from('feedbacks')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5)
+    
+    if (data) setFeedbacks(data)
+  }
 
   const sColor = { ipl:'#F2A623', kabaddi:'#D85A30', football:'#4CAF7D' }
 
-  // Handle Feedback Submit
-  const handleFeedbackSubmit = (e) => {
+  // 1. Handle Feedback Submit (Save to DB AND Send Email with Thank You Popup)
+  const handleFeedbackSubmit = async (e) => {
     e.preventDefault()
     if (!newFeedback.trim()) return
-    const newEntry = {
-      id: Date.now(),
-      user: profile?.display_name || 'Anonymous',
-      text: newFeedback
+
+    setIsSubmittingFeedback(true)
+    const userName = profile?.display_name || 'Anonymous'
+    const textToSubmit = newFeedback
+
+    // Insert into Supabase 'feedbacks' table
+    const { error } = await supabase
+      .from('feedbacks')
+      .insert([{ user_name: userName, text: textToSubmit }])
+
+    if (!error) {
+       // Optimistic UI Update
+       const newEntry = { id: Date.now(), user_name: userName, text: textToSubmit }
+       setFeedbacks(prev => [newEntry, ...prev].slice(0, 5))
+       setNewFeedback('')
+    } else {
+      console.error("Error saving feedback:", error)
+      fetchFeedbacks()
     }
-    // Update local state (keep last 5)
-    setFeedbacks(prev => [newEntry, ...prev].slice(0, 5))
-    setNewFeedback('')
+
+    // Background Email Notification for Feedback
+    try {
+      const formData = new FormData()
+      formData.append("access_key", WEB3FORMS_ACCESS_KEY)
+      formData.append("subject", "📢 New Feedback Received on Auction Arena!")
+      formData.append("from_name", "Auction Arena System")
+      formData.append("message", `User: ${userName}\nFeedback: ${textToSubmit}`)
+
+      await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        body: formData
+      })
+    } catch (emailErr) {
+      console.error("Error sending feedback email:", emailErr)
+    }
+
+    setIsSubmittingFeedback(false)
+    setShowFeedbackThankYou(true)
+
+    // Hide Feedback "Thank You" after 2.5 seconds
+    setTimeout(() => {
+      setShowFeedbackThankYou(false)
+    }, 2500)
+  }
+
+  // 2. Handle Contact Form Submit
+  const handleContactSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmittingContact(true)
+
+    const formData = new FormData(e.target)
+
+    try {
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        body: formData
+      })
+
+      if (response.ok) {
+        setShowContactThankYou(true)
+        e.target.reset()
+
+        setTimeout(() => {
+          setShowContactThankYou(false)
+          setActiveModal(null)
+        }, 2500)
+      }
+    } catch (error) {
+      console.error("Error submitting contact form:", error)
+    } finally {
+      setIsSubmittingContact(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-bg relative overflow-hidden">
-      {/* Inline styles for Marquee Animation */}
+    <div className="min-h-screen bg-bg relative overflow-hidden flex flex-col">
       <style>{`
         @keyframes scrollX {
           0% { transform: translateX(100vw); }
@@ -93,6 +172,27 @@ export default function DashboardPage() {
         }
       `}</style>
 
+      {/* FEEDBACK SUCCESS POPUP (Global Overlay) */}
+      {showFeedbackThankYou && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.6)', backdropFilter:'blur(5px)'}}>
+          <div className="flex flex-col items-center justify-center p-8 rounded-2xl transform transition-all scale-100 opacity-100" 
+               style={{
+                 background: 'rgba(255, 255, 255, 0.08)', 
+                 backdropFilter: 'blur(20px)', 
+                 border: '1px solid rgba(255, 255, 255, 0.15)',
+                 boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
+                 maxWidth: '400px',
+                 width: '100%'
+               }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{background: 'rgba(242, 166, 35, 0.15)', border: '1px solid rgba(242, 166, 35, 0.3)'}}>
+              <span className="text-3xl">⭐</span>
+            </div>
+            <h4 className="font-bebas text-3xl tracking-[2px] text-white mb-2">Feedback Sent!</h4>
+            <p className="text-sm text-muted text-center leading-relaxed">Thank you for helping us improve Auction Arena.</p>
+          </div>
+        </div>
+      )}
+
       <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.07)',top:-180,right:-150}}/>
       <div className="orb" style={{width:500,height:500,background:'rgba(216,90,48,0.05)',bottom:'5%',left:-160}}/>
 
@@ -113,7 +213,8 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-8 pt-24 pb-12">
+      {/* MAIN CONTENT AREA */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-8 pt-24 pb-12 flex-1">
         {/* GREETING */}
         <div className="mb-10 anim-1">
           <div className="text-xs tracking-[2px] uppercase text-gold mb-1">{greeting}</div>
@@ -124,7 +225,7 @@ export default function DashboardPage() {
         {/* QUICK STATS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 anim-2">
           {[['3','Auctions Played'],['1','Auctions Won'],['0','Active Rooms'],['47','Players Bought']].map(([v,l])=>(
-            <div key={l} className="surface p-5">
+            <div key={l} className="surface p-5 text-center">
               <div className="font-bebas text-3xl tracking-[2px] text-gold">{v}</div>
               <div className="text-xs text-muted tracking-widest uppercase mt-1">{l}</div>
             </div>
@@ -205,46 +306,50 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
-      </div>
 
-      {/* FEEDBACK SECTION */}
-      <div className="relative z-10 w-full mb-6">
-        <div className="max-w-7xl mx-auto px-8 mb-4">
-          <form onSubmit={handleFeedbackSubmit} className="flex items-center gap-3 w-full max-w-lg">
-            <input 
-              type="text" 
-              placeholder="Give us your feedback..." 
-              value={newFeedback}
-              onChange={(e) => setNewFeedback(e.target.value)}
-              className="flex-1 px-4 py-2 text-sm text-white rounded-lg outline-none transition-colors"
-              style={{background:'rgba(255,255,255,0.05)', border:'0.5px solid rgba(255,255,255,0.1)'}}
-            />
-            <button type="submit" className="px-5 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors hover:bg-gold hover:text-black" style={{background:'rgba(242,166,35,0.15)', color:'#F2A623', border:'0.5px solid rgba(242,166,35,0.3)'}}>
-              Send
-            </button>
-          </form>
+        {/* FEEDBACK SECTION */}
+        <div className="relative z-10 w-full mt-16 mb-8 flex flex-col items-center">
+          <h3 className="font-bebas text-2xl tracking-[3px] text-gold mb-4 uppercase">Share Your Experience</h3>
+          <div className="w-full max-w-2xl px-4">
+            <form onSubmit={handleFeedbackSubmit} className="flex items-center gap-3 w-full">
+              <input 
+                type="text" 
+                placeholder="Give us your feedback..." 
+                value={newFeedback}
+                onChange={(e) => setNewFeedback(e.target.value)}
+                disabled={isSubmittingFeedback}
+                className="flex-1 px-6 py-3 text-base text-white rounded-xl outline-none transition-all shadow-md focus:border-gold disabled:opacity-50"
+                style={{background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.12)'}}
+              />
+              <button type="submit" disabled={isSubmittingFeedback} className="px-8 py-3 text-sm font-bold uppercase tracking-widest rounded-xl transition-all shadow-md hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed" style={{background:'linear-gradient(135deg, #F2A623, #D85A30)', color:'#07070e'}}>
+                {isSubmittingFeedback ? '⏳ Sending...' : 'Send Feedback'}
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* FEEDBACK MARQUEE (SCROLLING TICKER) */}
-        <div className="w-full overflow-hidden flex items-center py-3" style={{borderTop:'0.5px solid rgba(255,255,255,0.05)', borderBottom:'0.5px solid rgba(255,255,255,0.05)', background:'rgba(0,0,0,0.2)'}}>
-          <div className="animate-marquee gap-10 flex">
+      </div>
+
+      {/* FEEDBACK MARQUEE (SCROLLING TICKER) */}
+      {feedbacks.length > 0 && (
+        <div className="relative z-10 w-full overflow-hidden flex items-center py-4 mt-auto" style={{borderTop:'1px solid rgba(255,255,255,0.04)', borderBottom:'1px solid rgba(255,255,255,0.04)', background:'rgba(0,0,0,0.4)'}}>
+          <div className="animate-marquee gap-12 flex">
             {feedbacks.map((fb, idx) => (
-              <span key={`${fb.id}-${idx}`} className="text-sm">
-                <span className="text-gold font-bold">{fb.user}:</span> <span className="text-muted">{fb.text}</span>
+              <span key={`${fb.id}-${idx}`} className="text-base">
+                <span className="text-gold font-bold">{fb.user_name}:</span> <span className="text-white/80">{fb.text}</span>
               </span>
             ))}
-            {/* Duplicating for infinite seamless loop effect */}
-             {feedbacks.map((fb, idx) => (
-              <span key={`dup-${fb.id}-${idx}`} className="text-sm">
-                <span className="text-gold font-bold">{fb.user}:</span> <span className="text-muted">{fb.text}</span>
+            {feedbacks.map((fb, idx) => (
+              <span key={`dup-${fb.id}-${idx}`} className="text-base">
+                <span className="text-gold font-bold">{fb.user_name}:</span> <span className="text-white/80">{fb.text}</span>
               </span>
             ))}
           </div>
         </div>
-      </div>
+      )}
 
       {/* FOOTER */}
-      <footer className="relative z-10 px-10 py-6 flex items-center justify-between flex-wrap gap-4">
+      <footer className="relative z-10 px-10 py-6 flex items-center justify-between flex-wrap gap-4 mt-4 bg-black/20">
         <span className="font-bebas text-xl tracking-[4px] text-gold">AUCTION ARENA</span>
         <span className="text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
         <div className="flex gap-6">
@@ -254,16 +359,14 @@ export default function DashboardPage() {
         </div>
       </footer>
 
-      {/* POPUP MODALS (Solid Dark Overlay) */}
+      {/* POPUP MODALS */}
       {activeModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)'}}>
           
-          {/* Modal Container - Dark Theme */}
           <div 
             className={`relative w-full ${activeModal === 'contact' ? 'max-w-4xl' : 'max-w-lg'} rounded-xl p-8 overflow-hidden transform transition-all`} 
             style={{background:'#111118', border:'1px solid rgba(255,255,255,0.05)', boxShadow:'0 25px 50px -12px rgba(0, 0, 0, 0.8)'}}
           >
-            {/* Close Button */}
             <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 text-muted hover:text-white text-2xl leading-none">&times;</button>
             
             {/* PRIVACY POLICY MODAL */}
@@ -326,15 +429,35 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right Side: Functional Form */}
-                <div className="flex-[1.2] p-6 rounded-xl" style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>
+                <div className="relative flex-[1.2] p-6 rounded-xl" style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>
                   
-                  {/* UPDATE YOUR EMAIL HERE 👇 */}
-                  <form action="https://formsubmit.co/apna_email@gmail.com" method="POST" target="_blank" className="space-y-4">
+                  {/* GLASSMORPHISM SUCCESS POPUP OVERLAY */}
+                  {showContactThankYou && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl" style={{background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)'}}>
+                      <div className="flex flex-col items-center justify-center p-8 rounded-2xl transform transition-all scale-100 opacity-100" 
+                           style={{
+                             background: 'rgba(255, 255, 255, 0.05)', 
+                             backdropFilter: 'blur(20px)', 
+                             border: '1px solid rgba(255, 255, 255, 0.15)',
+                             boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+                             maxWidth: '85%'
+                           }}>
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{background: 'rgba(76, 175, 125, 0.15)', border: '1px solid rgba(76, 175, 125, 0.3)'}}>
+                          <svg className="w-8 h-8 text-[#4CAF7D]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <h4 className="font-bebas text-3xl tracking-[2px] text-white mb-2">Thank You!</h4>
+                        <p className="text-sm text-muted text-center leading-relaxed">Your message has been successfully sent.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleContactSubmit} className="space-y-4">
                     
-                    {/* Hidden inputs for FormSubmit configuration */}
-                    <input type="hidden" name="_captcha" value="false" />
-                    <input type="hidden" name="_template" value="table" />
-                    <input type="hidden" name="_subject" value="New Contact Message from Auction Arena!" />
+                    <input type="hidden" name="access_key" value={WEB3FORMS_ACCESS_KEY} />
+                    <input type="hidden" name="subject" value="New Contact Message from Auction Arena!" />
+                    <input type="hidden" name="from_name" value="Auction Arena Contact Form" />
 
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-[2px] text-muted mb-1.5">Your Name</label>
@@ -348,7 +471,7 @@ export default function DashboardPage() {
 
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-[2px] text-muted mb-1.5">Subject</label>
-                      <input type="text" name="subject" required placeholder="Project Collaboration / Job Offer / Hi!" className="w-full px-4 py-3 rounded-lg text-sm text-white outline-none transition-colors focus:border-gold" style={{background:'#161622', border:'1px solid rgba(255,255,255,0.08)'}} />
+                      <input type="text" name="subject_user" required placeholder="Project Collaboration / Job Offer / Hi!" className="w-full px-4 py-3 rounded-lg text-sm text-white outline-none transition-colors focus:border-gold" style={{background:'#161622', border:'1px solid rgba(255,255,255,0.08)'}} />
                     </div>
                     
                     <div>
@@ -356,8 +479,9 @@ export default function DashboardPage() {
                       <textarea name="message" rows="3" required placeholder="Tell me about your project or opportunity..." className="w-full px-4 py-3 rounded-lg text-sm text-white outline-none transition-colors focus:border-gold resize-none custom-scrollbar" style={{background:'#161622', border:'1px solid rgba(255,255,255,0.08)'}}></textarea>
                     </div>
                     
-                    <button type="submit" className="w-full flex justify-center items-center gap-2 py-3.5 mt-2 rounded-lg text-sm font-bold tracking-[2px] uppercase transition-all hover:brightness-110" style={{background:'#F2A623',color:'#07070e'}}>
-                      <span className="text-lg">✈</span> Send Message
+                    <button type="submit" disabled={isSubmittingContact} className="w-full flex justify-center items-center gap-2 py-3.5 mt-2 rounded-lg text-sm font-bold tracking-[2px] uppercase transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed" style={{background:'#F2A623',color:'#07070e'}}>
+                      <span className="text-lg">{isSubmittingContact ? '⏳' : '✈'}</span> 
+                      {isSubmittingContact ? 'Sending...' : 'Send Message'}
                     </button>
                   </form>
                 </div>
