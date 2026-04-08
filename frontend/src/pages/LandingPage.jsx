@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -26,20 +26,25 @@ export default function LandingPage() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [activeUsers, setActiveUsers] = useState(0)
   const navigate = useNavigate()
+  const randomActiveUsers = useRef(Math.floor(Math.random() * (179 - 53 + 1)) + 53);
   const join = () => { if (code.trim().length === 6) navigate(`/join?code=${code.trim().toUpperCase()}`) }
 
   useEffect(() => {
     // --- 1. Fetch total registered users ---
+    // Fetched from a backend endpoint to bypass RLS for anonymous users on the landing page.
     const fetchUserCount = async () => {
-      const { count, error } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-
-      if (!error && count) {
-        setTotalUsers(count);
-      } else {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setTotalUsers(data.totalUsers || 0);
+        } else {
+          console.error("Failed to fetch stats from server:", res.status);
+          setTotalUsers(412); // Fallback on error
+        }
+      } catch (error) {
         console.error("Error fetching total user count:", error);
-        setTotalUsers(412);
+        setTotalUsers(412); // Fallback on error
       }
     };
     fetchUserCount();
@@ -49,8 +54,12 @@ export default function LandingPage() {
 
     const updateActiveUsers = () => {
       const presenceState = channel.presenceState();
-      const count = Object.keys(presenceState).length;
-      setActiveUsers(count || 1); // Show at least 1 user (yourself)
+      const realCount = Object.keys(presenceState).length;
+      if (realCount > 50) {
+        setActiveUsers(realCount);
+      } else {
+        setActiveUsers(randomActiveUsers.current);
+      }
     };
 
     channel
@@ -64,7 +73,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-bg relative">
+    <div className="min-h-screen bg-bg relative overflow-x-hidden">
       <div className="orb" style={{width:700,height:700,background:'rgba(242,166,35,0.08)',top:-250,right:-200}}/>
       <div className="orb" style={{width:600,height:600,background:'rgba(216,90,48,0.06)',bottom:-100,left:-220}}/>
       <div className="orb" style={{width:400,height:400,background:'rgba(76,175,125,0.05)',top:'38%',right:'5%'}}/>
@@ -72,7 +81,7 @@ export default function LandingPage() {
       {/* NAV */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-10 py-4"
            style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
-        <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
+        <span className="font-bebas text-xl sm:text-2xl tracking-[2px] sm:tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
         <div className="flex items-center gap-4 md:gap-8">
           <a href="#sports" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors">Arenas</a>
           <a href="#features" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors">Features</a>
@@ -82,7 +91,7 @@ export default function LandingPage() {
 
       {/* Live User Stats */}
       {totalUsers > 0 && (
-        <div className="fixed top-20 right-4 md:right-10 z-40" style={{backdropFilter:'blur(12px)'}}>
+        <div className="fixed top-20 sm:top-24 md:top-28 right-4 md:right-10 z-40" style={{backdropFilter:'blur(12px)'}}>
           <div className="flex items-center gap-4 rounded-lg p-2.5" style={{background:'rgba(255,255,255,0.04)', border:'0.5px solid rgba(255,255,255,0.08)'}}>
             <div className="text-center border-r border-white/10 pr-4">
               <div className="font-mono text-sm text-gold">{totalUsers.toLocaleString()}</div>
@@ -103,17 +112,17 @@ export default function LandingPage() {
       )}
 
       {/* HERO */}
-      <section className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-6 pt-20">
+      <section className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-6 pt-40 md:pt-48">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 anim-1"
              style={{background:'rgba(242,166,35,0.08)',border:'0.5px solid rgba(242,166,35,0.3)'}}>
           <span className="w-1.5 h-1.5 rounded-full bg-gold" style={{animation:'pulse 2s infinite'}}/>
           <span className="text-gold text-xs tracking-[3px] uppercase font-semibold">Real-time Multiplayer · Up to 10 Players · 3 Sports</span>
         </div>
-        <h1 className="font-bebas leading-none anim-2" style={{fontSize:'clamp(5rem,13vw,12rem)',letterSpacing:'6px'}}>
+        <h1 className="font-bebas leading-none anim-2" style={{fontSize:'clamp(5rem,13vw,12rem)',letterSpacing:'2px'}}>
           BID.<br/><span className="text-gold">WIN.</span><br/>
           <span style={{WebkitTextStroke:'2px rgba(242,166,35,0.55)',color:'transparent'}}>DOMINATE.</span>
         </h1>
-        <p className="text-muted text-lg max-w-lg mt-6 leading-relaxed anim-3">Host live IPL-style auctions with friends. Real bidding, AI announcer, Claude analysis — just like the pros.</p>
+        <p className="text-muted text-base sm:text-lg max-w-lg mt-6 leading-relaxed anim-3">Host live IPL-style auctions with friends. Real bidding, AI announcer, Claude analysis — just like the pros.</p>
         <div className="flex gap-4 mt-10 flex-wrap justify-center anim-4">
           <Link to="/login" className="btn-gold no-underline" style={{padding:'0.95rem 2.4rem',fontSize:'0.9rem'}}>Start Auction →</Link>
           <a href="#sports" className="btn-outline">Explore Arenas</a>
@@ -212,7 +221,7 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t px-10 py-6 flex items-center justify-between flex-wrap gap-4" style={{borderColor:'rgba(255,255,255,0.07)'}}>
         <span className="font-bebas text-xl tracking-[4px] text-gold">AUCTION ARENA</span>
         <span className="text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
-        <div className="flex gap-6">{['Privacy','Terms','Contact', 'Admin'].map(l=><Link key={l} to={l === 'Admin' ? '/admin' : '#'} className="text-muted text-xs hover:text-gold transition-colors no-underline">{l}</Link>)}</div>
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">{['Privacy','Terms','Contact', 'Admin'].map(l=><Link key={l} to={l === 'Admin' ? '/admin' : '#'} className="text-muted text-xs hover:text-gold transition-colors no-underline">{l}</Link>)}</div>
       </footer>
     </div>
   )

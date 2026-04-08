@@ -31,6 +31,11 @@ export default function DashboardPage() {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false)
   const [showFeedbackThankYou, setShowFeedbackThankYou] = useState(false)
 
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   useEffect(() => {
     const h = new Date().getHours()
     setGreeting(h<12?'Good Morning':h<17?'Good Afternoon':'Good Evening')
@@ -209,7 +214,7 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-          <button onClick={()=>{signOut();navigate('/login')}} className="text-xs text-muted hover:text-crimson transition-colors px-3 py-2 rounded-lg" style={{border:'0.5px solid rgba(255,255,255,0.07)'}}>Logout</button>
+          <button onClick={handleLogout} className="text-xs text-muted hover:text-crimson transition-colors px-3 py-2 rounded-lg" style={{border:'0.5px solid rgba(255,255,255,0.07)'}}>Logout</button>
         </div>
       </nav>
 

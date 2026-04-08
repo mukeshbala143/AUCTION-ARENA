@@ -18,6 +18,21 @@ app.get('/ping', (_req, res) => res.json({ ok: true, ts: Date.now() }))
 app.use('/api/rooms',    require('./src/routes/rooms')(supabase))
 app.use('/api/analysis', require('./src/routes/analysis')(supabase))
 
+// GET /api/stats - Public stats endpoint
+app.get('/api/stats', async (_req, res) => {
+  try {
+    const { count, error } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) throw error;
+
+    res.json({ totalUsers: count });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch stats', details: error.message });
+  }
+});
+
 // ── Per-room auction state (in-memory) ──────────────────────────────────
 const roomStates = {}
 function getState(code) {

@@ -8,7 +8,7 @@ export default function Navbar({ backTo, backLabel }) {
 
   const handleLogout = async () => {
     await signOut()
-    navigate('/login')
+    navigate('/')
   }
 
   return (
