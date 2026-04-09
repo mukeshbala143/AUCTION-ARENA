@@ -57,3 +57,50 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
 .anim-3{animation:fadeUp 0.6s 0.2s ease both}
 .anim-4{animation:fadeUp 0.6s 0.3s ease both}
 .anim-5{animation:fadeUp 0.6s 0.4s ease both}
+
+/* ── Mobile Responsive Auction Page ── */
+@media (max-width: 768px) {
+  #main-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  #main-grid > div:nth-child(1) {
+    display: none !important;
+  }
+
+  #main-grid > div:nth-child(3) {
+    border-left: none !important;
+    border-top: 0.5px solid rgba(255,255,255,0.07);
+    max-height: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .auction-topbar-full {
+    display: none !important;
+  }
+  .auction-topbar-mobile {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #main-grid {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto !important;
+  }
+  #main-grid > div:nth-child(1) {
+    display: none !important;
+  }
+  #main-grid > div:nth-child(2) {
+    min-height: 60vh;
+    padding: 16px !important;
+  }
+  #main-grid > div:nth-child(3) {
+    border-left: none !important;
+    border-top: 0.5px solid rgba(255,255,255,0.07);
+    padding: 16px !important;
+    overflow-y: visible !important;
+  }
+}

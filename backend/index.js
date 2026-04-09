@@ -126,6 +126,7 @@ io.on('connection', socket => {
     const lot = state.lotQueue[state.lotIdx]
     if (!lot || lot.id !== lotId) return
     if (amountLakhs <= state.currentBid.amount) return
+    if (state.currentBid.teamId === teamId) return
 
     const { data: team } = await supabase.from('room_teams').select('*').eq('id', teamId).single()
     if (!team || team.purse_remaining_lakhs < amountLakhs) return
@@ -134,6 +135,7 @@ io.on('connection', socket => {
     if (lot.player?.is_overseas && team.overseas_count >= (room?.max_overseas || 8)) return
     if (team.squad_count >= (room?.squad_limit || 25)) return
 
+    state.selling = false
     state.currentBid = { amount: amountLakhs, teamId, teamName: team.team_name }
     await supabase.from('bids').insert({ lot_id: lotId, team_id: teamId, amount_lakhs: amountLakhs })
 
@@ -181,24 +183,29 @@ io.on('connection', socket => {
 function startTimer(roomCode, lot) {
   const state = getState(roomCode)
   clearTimeout(state.timer)
-  state.timerRunning = false
+  const timerId = Date.now()
+  state.timerId = timerId
+  state.selling = false
   let secs = 15
-  state.timerRunning = true
+
   const tick = async () => {
     const state = getState(roomCode)
-    if (!state.timerRunning) return
+    if (state.timerId !== timerId) return
     if (state.paused) return
+
+    io.to(roomCode).emit('auction:timer', { seconds: secs })
+
     if (secs <= 0) {
-      state.timerRunning = false
+      if (state.timerId !== timerId) return
       if (state.currentBid.teamId) await sellPlayer(roomCode, lot)
       else await markUnsold(roomCode)
       return
     }
-    io.to(roomCode).emit('auction:timer', { seconds: secs })
     secs--
     state.timer = setTimeout(tick, 1000)
   }
-  state.timer = setTimeout(tick, 1000)
+
+  tick()
 }
 
 // ── Sell player ──────────────────────────────────────────────────────────
