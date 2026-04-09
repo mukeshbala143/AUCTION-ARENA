@@ -184,8 +184,8 @@ export default function AuctionPage() {
   
   const togglePause = () => {
     const s = getSocket()
-    if (paused) s.emit('admin:resume', { roomCode:code, userId:user?.id })
-    else s.emit('admin:pause', { roomCode:code, userId:user?.id })
+    if (paused) s.emit('auction:resume', { roomCode:code, userId:user?.id })
+    else s.emit('auction:pause', { roomCode:code, userId:user?.id })
   }
 
   const rc = ROLE_COLORS[player?.role] || ROLE_COLORS.allrounder
@@ -291,7 +291,8 @@ export default function AuctionPage() {
           )}
         </>
       )}
-      <button onClick={skipPlayer} disabled={skipped || paused}
+      {/* ✅ UPDATED: Disable if user is already leading the bid */}
+      <button onClick={skipPlayer} disabled={skipped || paused || isLeading}
               className="w-full py-2.5 rounded-xl text-xs font-semibold text-muted transition-all disabled:opacity-30"
               style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
         {skipped?'✓ Skipped':'Skip Player'}{skipCount>0&&<span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}

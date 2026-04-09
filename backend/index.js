@@ -40,10 +40,9 @@ function getState(code) {
     timer: null,
     currentBid: { amount: 0, teamId: null, teamName: null },
     lotQueue: [], lotIdx: -1, skips: {}, teamCount: 0, phase: 'main',
-    // ✅ NEW: track real totals
-    totalPlayers: 0,   // total players in this auction
-    soldCount: 0,      // players sold so far
-    unsoldCount: 0,    // players unsold so far
+    totalPlayers: 0,   
+    soldCount: 0,      
+    unsoldCount: 0,    
   }
   return roomStates[code]
 }
@@ -112,7 +111,6 @@ io.on('connection', socket => {
     state.lotIdx       = -1
     state.skips        = {}
     state.phase        = 'main'
-    // ✅ Set real total once at start
     state.totalPlayers = (createdLots || []).length
     state.soldCount    = 0
     state.unsoldCount  = 0
@@ -121,6 +119,7 @@ io.on('connection', socket => {
     await advanceLot(roomCode, room)
   })
 
+  // ✅ UPDATED LOGIC: Instant sell if others already skipped
   socket.on('bid:place', async ({ roomCode, lotId, teamId, amountLakhs }) => {
     const state = getState(roomCode)
     const lot = state.lotQueue[state.lotIdx]
@@ -142,18 +141,44 @@ io.on('connection', socket => {
     io.to(roomCode).emit('auction:bid', {
       teamId, teamName: team.team_name, amountLakhs, timestamp: Date.now()
     })
-    startTimer(roomCode, lot)
+
+    // Naya logic: Agar bidder ne pehle skip kiya tha, wo hata do
+    const requiredSkips = state.teamCount - 1;
+    let validSkips = state.skips[lotId] ? state.skips[lotId].size : 0;
+
+    if (state.skips[lotId] && state.skips[lotId].has(teamId)) {
+      validSkips--;
+      state.skips[lotId].delete(teamId);
+    }
+
+    if (validSkips >= requiredSkips && requiredSkips > 0) {
+       clearTimeout(state.timer)
+       await sellPlayer(roomCode, lot) // Turant bech do
+    } else {
+       startTimer(roomCode, lot) // Normal timer
+    }
   })
 
+  // ✅ UPDATED LOGIC: Check for active bid before requiring full skips
   socket.on('bid:skip', async ({ roomCode, lotId, teamId }) => {
     const state = getState(roomCode)
     if (!state.skips[lotId]) state.skips[lotId] = new Set()
     state.skips[lotId].add(teamId)
+    
     try { await supabase.from('skips').insert({ lot_id: lotId, team_id: teamId }) } catch {}
+
+    const hasBid = !!state.currentBid.teamId;
+    const requiredSkips = hasBid ? state.teamCount - 1 : state.teamCount;
+
     io.to(roomCode).emit('auction:skip', { teamId, skipCount: state.skips[lotId].size, teamCount: state.teamCount })
-    if (state.skips[lotId].size >= state.teamCount) {
+    
+    if (state.skips[lotId].size >= requiredSkips) {
       clearTimeout(state.timer)
-      await markUnsold(roomCode)
+      if (hasBid) {
+        await sellPlayer(roomCode, state.lotQueue[state.lotIdx])
+      } else {
+        await markUnsold(roomCode)
+      }
     }
   })
 
@@ -236,7 +261,6 @@ async function sellPlayer(roomCode, lot) {
 
   const { data: updatedTeam } = await supabase.from('room_teams').select('*').eq('id', teamId).single()
 
-  // ✅ Increment sold counter
   state.soldCount++
 
   io.to(roomCode).emit('auction:sold', {
@@ -244,7 +268,6 @@ async function sellPlayer(roomCode, lot) {
     winnerTeam: updatedTeam,
     finalPrice: amount,
     lotNumber: lot.lot_number,
-    // ✅ Send updated counters to frontend
     soldCount: state.soldCount,
     unsoldCount: state.unsoldCount,
     totalPlayers: state.totalPlayers,
@@ -264,13 +287,11 @@ async function markUnsold(roomCode) {
 
   await supabase.from('auction_lots').update({ status: 'unsold' }).eq('id', lot.id)
 
-  // ✅ Increment unsold counter
   state.unsoldCount++
 
   io.to(roomCode).emit('auction:unsold', {
     player: lot.player,
     lotNumber: lot.lot_number,
-    // ✅ Send updated counters to frontend
     soldCount: state.soldCount,
     unsoldCount: state.unsoldCount,
     totalPlayers: state.totalPlayers,
@@ -302,8 +323,7 @@ async function advanceLot(roomCode, room) {
         state.lotIdx      = -1
         state.skips       = {}
         state.phase       = 'unsold_round'
-        // ✅ Reset unsold counter for unsold round display
-        // but keep totalPlayers same so progress bar stays correct
+        
         io.to(roomCode).emit('auction:phase', {
           phase: 'unsold_round',
           count: unsold.length,
@@ -333,16 +353,14 @@ async function advanceLot(roomCode, room) {
 
   state.currentBid.amount = lot.base_price_lakhs
 
-  // ✅ lotNumber = actual lot number from DB (1-based, correct)
-  // ✅ totalLots = REAL total players (not just current phase)
   io.to(roomCode).emit('auction:player_up', {
     player: lot.player,
     lot,
-    lotNumber: lot.lot_number,           // actual position e.g. 5
-    totalLots: state.totalPlayers,        // ✅ FIXED: real total e.g. 37, not 350
+    lotNumber: lot.lot_number,           
+    totalLots: state.totalPlayers,       
     basePriceLakhs: lot.base_price_lakhs,
-    soldCount: state.soldCount,           // ✅ NEW
-    unsoldCount: state.unsoldCount,       // ✅ NEW
+    soldCount: state.soldCount,          
+    unsoldCount: state.unsoldCount,      
   })
 
   startTimer(roomCode, lot)
