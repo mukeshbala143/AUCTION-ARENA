@@ -1,175 +1,403 @@
-// ── UnsoldPage.jsx ──────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSocket } from '../lib/socket'
 import { useStore } from '../store'
-import { announcePlayer, announceBid, announceSold, announceUnsold } from '../lib/voice'
 
-const CIRC2 = 2 * Math.PI * 40
-function fmt2(l){return l>=100?`₹${(l/100).toFixed(2).replace(/\.?0+$/,'')} Cr`:`₹${l} L`}
+const fmt = (l) => l >= 100 ? `₹${(l/100).toFixed(2).replace(/\.?0+$/, '')} Cr` : `₹${l} L`
+const ROLES = ['all', 'batsman', 'allrounder', 'bowler', 'wicketkeeper']
+const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'}}
+const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D']
 
-export function UnsoldPage() {
+export default function UnsoldPage() {
   const { code } = useParams()
   const navigate = useNavigate()
   const { user } = useStore()
   const [room, setRoom] = useState(null)
   const [myTeam, setMyTeam] = useState(null)
+  const [teams, setTeams] = useState([])
   const [unsoldList, setUnsoldList] = useState([])
-  const [player, setPlayer] = useState(null)
-  const [lot, setLot] = useState(null)
-  const [lotNum, setLotNum] = useState(0)
-  const [totalUnsold, setTotalUnsold] = useState(0)
-  const [bid, setBid] = useState(null)
-  const [leader, setLeader] = useState(null)
-  const [history, setHistory] = useState([])
-  const [timer, setTimer] = useState(15)
-  const [skipped, setSkipped] = useState(false)
-  const [flash, setFlash] = useState(false)
+  const [selected, setSelected] = useState([]) 
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [isDone, setIsDone] = useState(false)
+  const [doneTeams, setDoneTeams] = useState([]) 
+  const [loading, setLoading] = useState(false)
+  const [expandedTeam, setExpandedTeam] = useState(null)
 
   useEffect(() => {
-    loadRoom()
+    loadData()
     const socket = getSocket()
     socket.emit('room:join', { roomCode: code, userId: user?.id })
-    socket.on('auction:player_up', ({player:p,lot:l,lotNumber,totalLots,basePriceLakhs})=>{
-      setPlayer(p);setLot(l);setLotNum(lotNumber);setTotalUnsold(totalLots)
-      setBid({amount:basePriceLakhs,teamId:null});setLeader(null);setHistory([]);setTimer(15);setSkipped(false)
-      announcePlayer(p,lotNumber,totalLots)
-    })
-    socket.on('auction:bid_placed',({teamId,teamName,amountLakhs})=>{
-      setBid({amount:amountLakhs,teamId});setLeader(teamName)
-      setHistory(p=>[{teamId,teamName,amountLakhs,time:new Date()},...p].slice(0,8))
-      setFlash(true);setTimeout(()=>setFlash(false),400)
-      announceBid(teamName,amountLakhs)
-    })
-    socket.on('auction:timer_update',({secondsRemaining})=>setTimer(secondsRemaining))
-    socket.on('auction:player_sold',({player:p,winnerTeam,finalPriceLakhs})=>{announceSold(p.name,winnerTeam.team_name,finalPriceLakhs)})
-    socket.on('auction:player_unsold',({player:p})=>{announceUnsold(p.name)})
-    socket.on('auction:phase_change',({phase})=>{ if(phase==='finished') setTimeout(()=>navigate(`/squads/${code}`),2000) })
-    return ()=>socket.removeAllListeners()
-  },[code])
 
-  const loadRoom = async () => {
-    const {data}=await supabase.from('rooms').select('*,room_teams(*,user:users(display_name))').eq('code',code).single()
-    if(!data)return;setRoom(data)
-    const my=data.room_teams?.find(t=>t.user_id===user?.id);if(my)setMyTeam(my)
-    const {data:unsold}=await supabase.from('auction_lots').select('*,player:players(*)').eq('room_id',data.id).eq('status','unsold')
-    setUnsoldList(unsold||[]);setTotalUnsold((unsold||[]).length)
+    socket.on('unsold:team_done', ({ teamId }) => {
+      setDoneTeams(prev => [...new Set([...prev, teamId])])
+    })
+
+    socket.on('unsold:start_auction', () => {
+      navigate(`/auction/${code}`)
+    })
+
+    return () => {
+      socket.off('unsold:team_done')
+      socket.off('unsold:start_auction')
+    }
+  }, [code])
+
+  const loadData = async () => {
+    const { data: roomData } = await supabase.from('rooms')
+      .select(`
+        *, 
+        room_teams(
+          *, 
+          user:users(display_name),
+          squad_picks(
+            price_paid_lakhs,
+            player:players(name, role)
+          )
+        )
+      `)
+      .eq('code', code).single()
+      
+    if (!roomData) return
+    setRoom(roomData)
+    
+    const formattedTeams = (roomData.room_teams || []).map(t => ({
+      ...t,
+      picks: t.squad_picks || []
+    }))
+    
+    setTeams(formattedTeams)
+    
+    const my = formattedTeams.find(t => t.user_id === user?.id)
+    if (my) setMyTeam(my)
+
+    const { data: unsold } = await supabase.from('auction_lots')
+      .select('*, player:players(*)')
+      .eq('room_id', roomData.id)
+      .eq('status', 'unsold')
+    setUnsoldList(unsold || [])
+
+    const { data: doneData } = await supabase.from('room_teams')
+      .select('id').eq('room_id', roomData.id).eq('unsold_ready', true)
+    setDoneTeams((doneData || []).map(t => t.id))
+
+    if (my) {
+      const { data: mySelections } = await supabase.from('unsold_selections')
+        .select('lot_id').eq('team_id', my.id)
+      setSelected((mySelections || []).map(s => s.lot_id))
+      const alreadyDone = (doneData || []).find(t => t.id === my.id)
+      if (alreadyDone) setIsDone(true)
+    }
   }
 
-  const placeBid=(inc)=>{
-    if(!lot||!myTeam)return
-    const newAmt=(bid?.amount||0)+inc
-    if(myTeam.purse_remaining_lakhs<newAmt)return
-    getSocket().emit('bid:place',{roomCode:code,lotId:lot.id,teamId:myTeam.id,amountLakhs:newAmt,userId:user?.id})
+  const toggleSelect = async (lotId) => {
+    if (isDone || !myTeam || mySquadFull || myPurseEmpty) return
+    const isSelected = selected.includes(lotId)
+    if (isSelected) {
+      setSelected(prev => prev.filter(id => id !== lotId))
+      await supabase.from('unsold_selections')
+        .delete().eq('team_id', myTeam.id).eq('lot_id', lotId)
+    } else {
+      setSelected(prev => [...prev, lotId])
+      await supabase.from('unsold_selections')
+        .upsert({ room_id: room.id, team_id: myTeam.id, lot_id: lotId })
+    }
   }
-  const skipPlayer=()=>{if(!lot||!myTeam)return;setSkipped(true);getSocket().emit('bid:skip',{roomCode:code,lotId:lot.id,teamId:myTeam.id})}
 
-  const red=timer<=5
-  const offset=CIRC2*(1-timer/15)
+  const handleDone = async () => {
+    if (!myTeam || isDone) return
+    setLoading(true)
+    await supabase.from('room_teams')
+      .update({ unsold_ready: true }).eq('id', myTeam.id)
+    getSocket().emit('unsold:team_done', { roomCode: code, teamId: myTeam.id })
+    setIsDone(true)
+    setLoading(false)
+  }
+
+  const handleStartAuction = async () => {
+    if (!room) return
+    setLoading(true)
+
+    const { data: selections } = await supabase.from('unsold_selections')
+      .select('lot_id').eq('room_id', room.id)
+    
+    const selectedLotIds = [...new Set((selections || []).map(s => s.lot_id))]
+
+    if (selectedLotIds.length === 0) {
+      await supabase.from('rooms').update({ status: 'finished' }).eq('id', room.id)
+      navigate(`/squads/${code}`)
+      return
+    }
+
+    await supabase.from('auction_lots')
+      .update({ status: 'pending', is_unsold_round: true })
+      .in('id', selectedLotIds)
+
+    await supabase.from('room_teams')
+      .update({ unsold_ready: false }).eq('room_id', room.id)
+
+    getSocket().emit('unsold:start_auction', { roomCode: code, userId: user?.id, lotIds: selectedLotIds })
+    setLoading(false)
+  }
+
+  const isAdmin = room?.admin_id === user?.id
+  const squadLimit = room?.squad_limit || 25
+  const mySquadFull = myTeam && myTeam.squad_count >= squadLimit
+  const myPurseEmpty = myTeam && myTeam.purse_remaining_lakhs <= 0
+
+  const filteredList = unsoldList.filter(l =>
+    roleFilter === 'all' ? true :
+    roleFilter === 'uncapped' ? !l.player?.is_capped :
+    l.player?.role === roleFilter
+  )
+
+  const allTeamsDone = teams.length > 0 && teams.every(t => doneTeams.includes(t.id))
 
   return (
-    <div className="h-screen bg-bg flex flex-col overflow-hidden relative">
-      <div className="orb" style={{width:500,height:500,background:'rgba(216,90,48,0.07)',top:-200,right:-150}}/>
+    <div className="min-h-screen bg-bg flex flex-col" style={{maxWidth:"100vw",overflowX:"hidden"}}>
+      <div className="orb" style={{width:500,height:500,background:'rgba(216,90,48,0.06)',top:-200,right:-150}}/>
+
       {/* TOP BAR */}
-      <div className="flex items-center gap-4 px-5 py-3 flex-shrink-0 relative z-10" style={{background:'rgba(7,7,14,0.95)',borderBottom:'0.5px solid rgba(216,90,48,0.2)'}}>
-        <span className="font-bebas text-xl tracking-[3px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
-        <span className="font-mono text-xs px-2 py-0.5 rounded text-muted">{code}</span>
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold" style={{background:'rgba(216,90,48,0.12)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.35)'}}>
-          <span className="w-2 h-2 rounded-full bg-crimson" style={{animation:'pulse 1.5s infinite'}}/>Unsold Players Round
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 relative z-10 flex-wrap"
+           style={{background:'rgba(7,7,14,0.95)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
+        
+        <button onClick={() => navigate('/dashboard')} 
+                className="text-[10px] md:text-xs px-2 py-1.5 md:px-3 md:py-2 rounded-lg text-muted hover:text-gold transition-colors"
+                style={{border:'0.5px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.02)'}}>
+          ← <span className="hidden sm:inline">Dashboard</span>
+        </button>
+
+        <span className="font-bebas text-lg md:text-xl tracking-[3px] text-gold hidden sm:block">AUCTION<span className="text-white"> ARENA</span></span>
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded text-muted hidden sm:block">{code}</span>
+        
+        <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+             style={{background:'rgba(216,90,48,0.12)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.3)'}}>
+          🔄 Unsold Selection
         </div>
-        <div className="flex-1 flex items-center gap-3">
-          <span className="text-xs text-muted whitespace-nowrap">Unsold {lotNum}/{totalUnsold}</span>
-          <div className="flex-1 h-0.5 rounded overflow-hidden" style={{background:'rgba(255,255,255,0.06)'}}>
-            <div className="h-full rounded" style={{width:totalUnsold?`${(lotNum/totalUnsold)*100}%`:'0%',background:'linear-gradient(90deg,#993C1D,#D85A30)',transition:'width 0.5s'}}/>
-          </div>
-        </div>
+        
+        <div className="flex-1"/>
+        <span className="text-[10px] text-muted font-mono">{doneTeams.length}/{teams.length} Ready</span>
       </div>
 
-      <div className="flex-1 grid overflow-hidden relative z-10" style={{gridTemplateColumns:'220px 1fr 240px'}}>
-        {/* LEFT: UNSOLD LIST */}
-        <div className="overflow-y-auto border-r p-2 flex flex-col gap-1.5" style={{borderColor:'rgba(216,90,48,0.15)',background:'rgba(216,90,48,0.03)'}}>
-          <div className="px-2 py-2 mb-1">
-            <div className="text-[10px] tracking-[2px] uppercase" style={{color:'#F07050'}}>Unsold Players</div>
-            <div className="font-bebas text-3xl tracking-[2px]" style={{color:'#F07050'}}>{totalUnsold}</div>
-            <div className="text-muted text-[10px]">in re-auction queue</div>
-          </div>
-          {unsoldList.map((l,i)=>(
-            <div key={l.id} className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all" style={{border:`0.5px solid ${lot?.id===l.id?'rgba(216,90,48,0.4)':'rgba(255,255,255,0.07)'}`,background:lot?.id===l.id?'rgba(216,90,48,0.08)':'rgba(255,255,255,0.02)'}}>
-              <span className="font-mono text-[10px] text-muted w-5 text-right">{i+1}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold truncate">{l.player?.name}</div>
-                <div className="text-[10px] text-muted truncate">{l.player?.role} · {l.player?.country}</div>
+      <div className="flex-1 flex flex-col md:flex-row gap-0 relative z-10" style={{minHeight:0}}>
+
+        {/* LEFT: Teams status */}
+        <div className="md:w-60 flex-shrink-0 md:border-r border-b overflow-x-auto md:overflow-y-auto p-3 flex md:flex-col flex-row gap-2 custom-scrollbar"
+             style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.2)'}}>
+          <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1 hidden md:block">Teams Status</div>
+          
+          {teams.map((t, i) => {
+            const done = doneTeams.includes(t.id)
+            const full = t.squad_count >= squadLimit
+            const isMe = t.user_id === user?.id
+            return (
+              <div key={t.id} className="rounded-xl flex-shrink-0 overflow-hidden transition-all duration-300"
+                   style={{background: done ? 'rgba(76,175,125,0.08)' : 'rgba(255,255,255,0.02)',
+                           border: `0.5px solid ${done ? 'rgba(76,175,125,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                           width: 'min-[160px]'}}> 
+                
+                <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-white/5" onClick={() => setExpandedTeam(expandedTeam===t.id?null:t.id)}>
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background: TEAM_COLORS[i % TEAM_COLORS.length]}}/>
+                  <span className="text-xs font-semibold truncate flex-1">{t.team_name}</span>
+                  {isMe && <span className="text-[8px] bg-gold/20 text-gold px-1 py-0.5 rounded font-bold">YOU</span>}
+                  {done && <span className="text-[10px] text-emerald font-bold">✓</span>}
+                  <span className="text-[10px] text-muted transition-transform duration-300" style={{transform: expandedTeam===t.id ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+                </div>
+                
+                <div className="px-3 pb-2 text-[10px] text-muted flex justify-between">
+                  <span>{t.squad_count}/{squadLimit}</span>
+                  <span className="font-mono text-gold">{fmt(t.purse_remaining_lakhs)}</span>
+                </div>
+
+                <div className={`transition-all duration-300 ease-in-out ${expandedTeam === t.id ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+                  {t.picks && t.picks.length > 0 ? (
+                    <div className="px-3 pb-3 pt-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar" style={{maxHeight:'10rem', background:'rgba(0,0,0,0.15)', borderTop:'0.5px solid rgba(255,255,255,0.03)'}}>
+                      <div className="flex justify-between text-[8px] tracking-widest uppercase text-muted py-1">
+                        <span>Squad</span><span>Price</span>
+                      </div>
+                      {t.picks.map((pk,pi)=>(
+                        <div key={pi} className="flex flex-col text-[10px] py-1 border-b border-white/5">
+                          <div className="flex items-center justify-between">
+                            <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
+                            <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2 text-[9px] text-muted text-center italic bg-black/20 border-t border-white/5">No players bought</div>
+                  )}
+                </div>
               </div>
-              <div className="font-mono text-[10px] text-muted">{fmt2(l.base_price_lakhs)}</div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
-        {/* CENTER */}
-        <div className="overflow-y-auto flex flex-col items-center py-5 px-6">
-          <div className="p-4 rounded-xl mb-4 w-full max-w-[420px] flex items-center gap-3" style={{background:'rgba(216,90,48,0.08)',border:'0.5px solid rgba(216,90,48,0.25)'}}>
-            <span className="text-2xl">🔄</span>
-            <div>
-              <div className="text-sm font-semibold" style={{color:'#F07050'}}>Unsold Players Round</div>
-              <div className="text-xs text-muted">Skip tracking has reset. Teams can bid on previously-skipped players.</div>
-            </div>
-          </div>
-          {player && (
-            <div className="glass p-6 w-full max-w-[420px] flex flex-col items-center text-center" style={{borderColor:'rgba(216,90,48,0.3)'}}>
-              <div className="text-[10px] tracking-[2px] uppercase mb-3" style={{color:'#F07050'}}>Re-Listed · Player {lotNum} of {totalUnsold}</div>
-              <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-4 flex-shrink-0" style={{background:'linear-gradient(135deg,#2a1a1a,#1a1a2a)',border:'2.5px solid rgba(216,90,48,0.5)',boxShadow:'0 0 35px rgba(216,90,48,0.2)'}}>
-                {room?.sport==='ipl'?'🏏':room?.sport==='kabaddi'?'🤼':'⚽'}
-              </div>
-              <h2 className="font-bebas text-3xl tracking-[3px] mb-2">{player.name}</h2>
-              <div className="flex flex-wrap gap-1.5 justify-center mb-3">
-                <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(216,90,48,0.1)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.25)'}}>{player.role}</span>
-                <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(216,90,48,0.08)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.2)'}}>↩ Re-Listed</span>
-                <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(76,175,125,0.08)',color:'#6DCFA0',border:'0.5px solid rgba(76,175,125,0.2)'}}>Base: {fmt2(player.base_price_lakhs)}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 w-full">
-                {Object.entries(player.stats_total_ipl||{}).slice(0,9).map(([k,v])=>(
-                  <div key={k} className="rounded-lg py-2 px-1 text-center" style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.07)'}}>
-                    <div className="font-mono text-sm font-semibold">{v||'—'}</div>
-                    <div className="text-muted text-[9px] uppercase tracking-wide mt-0.5">{k.replace(/_/g,' ')}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT */}
-        <div className="overflow-y-auto border-l flex flex-col items-center py-5 px-4" style={{borderColor:'rgba(216,90,48,0.15)',background:'rgba(216,90,48,0.02)'}}>
-          <div className="text-[10px] tracking-[2px] uppercase text-muted mb-1">Current Bid</div>
-          <div className={`font-bebas text-5xl tracking-[2px] text-gold ${flash?'scale-125':''}`} style={{transition:'transform 0.3s',textShadow:'0 0 40px rgba(242,166,35,0.5)'}}>
-            {bid?fmt2(bid.amount):'—'}
-          </div>
-          <div className="text-xs text-muted mb-2">{leader?<>Led by <span className="text-gold font-semibold">{leader}</span></>:'No bids yet'}</div>
-          <div className="relative w-24 h-24 mx-auto my-2">
-            <svg className="w-full h-full" style={{transform:'rotate(-90deg)'}} viewBox="0 0 90 90">
-              <circle cx="45" cy="45" r="40" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5"/>
-              <circle cx="45" cy="45" r="40" fill="none" stroke={red?'#E24B4A':'#D85A30'} strokeWidth="5" strokeDasharray={CIRC2} strokeDashoffset={offset} strokeLinecap="round" style={{transition:'stroke-dashoffset 1s linear'}}/>
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center font-mono text-xl font-bold" style={{color:red?'#E24B4A':'#F07050'}}>{timer}</div>
-          </div>
-          <div className="flex flex-col gap-2 w-full mb-3">
-            <button onClick={()=>placeBid(25)} disabled={skipped} className="w-full py-3 rounded-xl font-bold text-bg text-xs tracking-widest uppercase disabled:opacity-40" style={{background:'linear-gradient(135deg,#F2A623,#BA7517)'}}>+ ₹25 Lakhs</button>
-            {(bid?.amount||0)>=1000&&<button onClick={()=>placeBid(50)} disabled={skipped} className="w-full py-3 rounded-xl font-bold text-xs tracking-widest uppercase disabled:opacity-40" style={{background:'rgba(216,90,48,0.15)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.35)'}}>+ ₹50 Lakhs</button>}
-            <button onClick={skipPlayer} disabled={skipped} className="w-full py-2.5 rounded-xl text-xs font-semibold text-muted disabled:opacity-30" style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>{skipped?'✓ Passed':'Pass Player'}</button>
-          </div>
-          <div className="text-[10px] tracking-[2px] uppercase text-muted self-start mb-2">Bid History</div>
-          <div className="w-full space-y-1">
-            {history.map((h,i)=>(
-              <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg" style={{background:i===0?'rgba(242,166,35,0.06)':'rgba(255,255,255,0.02)'}}>
-                <span className="text-xs flex-1 truncate text-muted">{h.teamName}</span>
-                <span className="font-mono text-xs text-gold font-bold">{fmt2(h.amountLakhs)}</span>
-              </div>
+        {/* CENTER: Player selection */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          
+          {/* Role filter tabs */}
+          <div className="flex items-center gap-1 px-4 py-3 flex-shrink-0 overflow-x-auto custom-scrollbar"
+               style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
+            <span className="text-xs text-muted mr-2 flex-shrink-0 tracking-widest uppercase">Filter:</span>
+            {['all', ...ROLES.filter(r=>r!=='all'), 'uncapped'].map(r => (
+              <button key={r} onClick={() => setRoleFilter(r)}
+                      className="px-3 py-1.5 text-[10px] sm:text-[11px] font-bold tracking-wider uppercase transition-all rounded-lg flex-shrink-0 whitespace-nowrap"
+                      style={{background: roleFilter===r ? 'rgba(242,166,35,0.15)' : 'rgba(255,255,255,0.03)',
+                              color: roleFilter===r ? '#F2A623' : '#7A7870',
+                              border: `0.5px solid ${roleFilter===r ? 'rgba(242,166,35,0.3)' : 'rgba(255,255,255,0.05)'}`}}>
+                {r}
+              </button>
             ))}
+            <div className="flex-1 hidden sm:block"/>
+            {/* Desktop only Selected badge */}
+            <span className="text-[10px] sm:text-xs text-gold font-bold px-2 py-1 rounded bg-gold/10 whitespace-nowrap shrink-0 hidden sm:block">
+              {selected.length} Selected
+            </span>
           </div>
+
+          {/* ✅ MOBILE ACTION BAR (Top View for mobile only) */}
+          <div className="flex md:hidden flex-col gap-3 px-4 py-3 flex-shrink-0 z-10 shadow-md"
+               style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)', background:'rgba(0,0,0,0.2)'}}>
+            
+            {!isDone ? (
+              <>
+                {/* Badge Left, Text Right */}
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-[11px] text-gold font-bold px-3 py-1.5 rounded-lg bg-gold/10 whitespace-nowrap shrink-0 border border-gold/20">
+                    {selected.length} Selected
+                  </span>
+                  <span className="text-[10px] text-muted text-right leading-tight">
+                    {mySquadFull ? 'Squad full — Please submit.' : myPurseEmpty ? 'Purse empty — Please submit.' : `You have selected ${selected.length} players to bring back.`}
+                  </span>
+                </div>
+                
+                {/* ✅ Button Right-Aligned, Half Width */}
+                <div className="flex justify-end">
+                  <button onClick={handleDone} disabled={loading} 
+                          className="w-1/2 px-2 py-2.5 rounded-xl font-bold text-[11px] tracking-wider uppercase disabled:opacity-50 shadow-lg hover:brightness-110"
+                          style={{background: 'linear-gradient(135deg,#F2A623,#BA7517)', color: '#13131f'}}>
+                    {loading ? 'Processing...' : '✓ Submit'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 w-full">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald animate-pulse"/>
+                  <span className="text-xs font-bold text-emerald tracking-wide">Selections Submitted</span>
+                </div>
+                <span className="text-[10px] text-muted font-mono">Waiting for others: {doneTeams.length}/{teams.length} Ready</span>
+                {isAdmin && (
+                  <button onClick={handleStartAuction}
+                          disabled={!allTeamsDone || loading}
+                          className="w-full mt-1 px-6 py-2.5 rounded-xl font-bold text-[11px] tracking-widest uppercase transition-all"
+                          style={{background: allTeamsDone ? 'linear-gradient(135deg,#4CAF7D,#2a7a4a)' : 'rgba(255,255,255,0.06)',
+                                  color: allTeamsDone ? '#fff' : '#555',
+                                  border: `0.5px solid ${allTeamsDone ? 'rgba(76,175,125,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                                  cursor: allTeamsDone ? 'pointer' : 'not-allowed'}}>
+                    {loading ? 'Starting...' : allTeamsDone ? '🚀 Start Unsold Round' : 'Waiting for Teams...'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Player grid */}
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+            {mySquadFull || myPurseEmpty ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+                <div className="text-5xl mb-4">{mySquadFull ? '✅' : '💸'}</div>
+                <div className="font-bebas text-3xl text-gold tracking-widest mb-1">
+                  {mySquadFull ? 'Squad Full!' : 'Purse Empty!'}
+                </div>
+                <p className="text-sm text-muted">
+                  {mySquadFull ? 'You have reached the maximum squad limit.' : 'You have no funds left to bid.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {filteredList.map(l => {
+                  const isSelected = selected.includes(l.id)
+                  const rc = ROLE_COLORS[l.player?.role] || ROLE_COLORS.allrounder
+                  
+                  return (
+                    <div key={l.id}
+                         onClick={() => toggleSelect(l.id)}
+                         className="rounded-xl p-4 cursor-pointer transition-all relative flex flex-col items-center justify-center"
+                         style={{background: isSelected ? 'rgba(242,166,35,0.08)' : 'rgba(255,255,255,0.02)',
+                                 border: `0.5px solid ${isSelected ? 'rgba(242,166,35,0.4)' : 'rgba(255,255,255,0.05)'}`,
+                                 opacity: isDone ? 0.6 : 1,
+                                 transform: isSelected && !isDone ? 'scale(1.02)' : 'scale(1)'}}>
+                      
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-lg"
+                             style={{background:'#F2A623',color:'#13131f'}}>✓</div>
+                      )}
+                      
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mb-3"
+                           style={{background:'linear-gradient(135deg,#1a2535,#2a1a2a)', border:`1.5px solid ${rc.b}`, boxShadow:`0 0 15px ${rc.bg}`}}>
+                        {l.player?.photo_url
+                          ? <img src={l.player.photo_url} className="w-full h-full rounded-full object-cover" onError={e=>e.target.style.display='none'}/>
+                          : '🏏'}
+                      </div>
+                      
+                      <div className="text-sm font-bold text-center truncate w-full text-white/90">{l.player?.name}</div>
+                      <div className="text-[10px] font-bold tracking-widest text-center mt-1 uppercase"
+                           style={{color: rc.c}}>{l.player?.role?.replace('_',' ')}</div>
+                      <div className="text-xs font-mono font-bold text-muted text-center mt-1.5 px-2 py-0.5 rounded" style={{background:'rgba(255,255,255,0.04)'}}>{fmt(l.base_price_lakhs)}</div>
+                    </div>
+                  )
+                })}
+                {filteredList.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted text-sm">
+                    <div className="text-4xl mb-3 opacity-50">🔍</div>
+                    <p>No unsold players found in this category.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ✅ DESKTOP FIXED ACTION BAR (Hidden on Mobile) */}
+          <div className="hidden md:flex flex-shrink-0 px-4 py-3 items-center gap-4"
+               style={{borderTop:'0.5px solid rgba(255,255,255,0.07)',background:'rgba(7,7,14,0.9)'}}>
+            
+            {!isDone ? (
+              <>
+                <span className="text-xs text-muted flex-1 text-left">
+                  {mySquadFull ? 'Squad full — Please submit your status.' : myPurseEmpty ? 'Purse empty — Please submit your status.' : `You have selected ${selected.length} players to bring back.`}
+                </span>
+                <button onClick={handleDone} disabled={loading}
+                        className="w-auto px-6 py-2.5 rounded-xl font-bold text-sm tracking-widest uppercase transition-all disabled:opacity-50 shadow-lg hover:brightness-110"
+                        style={{background:'linear-gradient(135deg,#F2A623,#BA7517)',color:'#13131f'}}>
+                  {loading ? 'Processing...' : '✓ Submit Selections'}
+                </button>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-row items-center justify-between gap-3 w-full">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald animate-pulse"/>
+                  <span className="text-xs font-bold text-emerald tracking-wide">Selections Submitted</span>
+                </div>
+                <span className="text-xs text-muted font-mono">Waiting for others: {doneTeams.length}/{teams.length} Ready</span>
+                {isAdmin && (
+                  <button onClick={handleStartAuction}
+                          disabled={!allTeamsDone || loading}
+                          className="w-auto px-6 py-2.5 rounded-xl font-bold text-sm tracking-widest uppercase transition-all"
+                          style={{background: allTeamsDone ? 'linear-gradient(135deg,#4CAF7D,#2a7a4a)' : 'rgba(255,255,255,0.06)',
+                                  color: allTeamsDone ? '#fff' : '#555',
+                                  border: `0.5px solid ${allTeamsDone ? 'rgba(76,175,125,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                                  cursor: allTeamsDone ? 'pointer' : 'not-allowed'}}>
+                    {loading ? 'Starting...' : allTeamsDone ? '🚀 Start Unsold Round' : 'Waiting for Teams...'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>
   )
 }
-export default UnsoldPage

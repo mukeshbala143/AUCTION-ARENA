@@ -62,7 +62,7 @@ io.on('connection', socket => {
     const { data: teams } = await supabase.from('room_teams')
       .select('*, user:users(display_name, avatar_url)')
       .eq('room_id', room.id)
-    socket.emit('lobby:teams', teams || [])
+    io.to(roomCode).emit('lobby:teams', teams || [])
 
     // ✅ Rejoin: send current auction state if active
     if (room.status === 'active') {
@@ -239,6 +239,53 @@ io.on('connection', socket => {
     if (lot) startTimer(roomCode, lot)
   })
 
+  socket.on('admin:end_main', async ({ roomCode, userId }) => {
+    const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
+    if (!room || room.admin_id !== userId) return
+    const state = getState(roomCode)
+    clearTimeout(state.timer)
+    state.timerId = null
+    state.selling = true
+    // Mark remaining pending/active lots as unsold
+    await supabase.from('auction_lots')
+      .update({ status: 'unsold' })
+      .eq('room_id', room.id)
+      .in('status', ['pending', 'active'])
+    await supabase.from('rooms').update({ status: 'unsold_selection' }).eq('code', roomCode)
+    io.to(roomCode).emit('auction:phase', {
+      phase: 'unsold_selection',
+      soldCount: state.soldCount,
+      unsoldCount: state.unsoldCount,
+      totalPlayers: state.totalPlayers,
+    })
+  })
+
+  socket.on('unsold:team_done', ({ roomCode, teamId }) => {
+    io.to(roomCode).emit('unsold:team_done', { teamId })
+  })
+
+  socket.on('unsold:start_auction', async ({ roomCode, userId, lotIds }) => {
+    const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
+    if (!room || room.admin_id !== userId) return
+    const { data: selectedLots } = await supabase.from('auction_lots')
+      .select('*, player:players(*)').eq('room_id', room.id)
+      .in('id', lotIds).order('lot_number')
+    roomStates[roomCode] = {
+      timer: null, timerId: null,
+      currentBid: { amount: 0, teamId: null, teamName: null },
+      lotQueue: selectedLots || [], lotIdx: -1, skips: {}, teamCount: 0, phase: 'unsold_round',
+      totalPlayers: (selectedLots || []).length, soldCount: 0, unsoldCount: 0,
+      selling: false, timerRunning: false, paused: false, lastBidder: null,
+    }
+    const newState = getState(roomCode)
+    const { data: teams } = await supabase.from('room_teams').select('*').eq('room_id', room.id)
+    newState.teamCount = (teams || []).length
+    await supabase.from('rooms').update({ status: 'active' }).eq('code', roomCode)
+    io.to(roomCode).emit('auction:started')
+    io.to(roomCode).emit('unsold:start_auction')
+    await advanceLot(roomCode, room)
+  })
+
   socket.on('disconnect', () => console.log('🔌 Socket disconnected:', socket.id))
 })
 
@@ -375,6 +422,17 @@ async function advanceLot(roomCode, room) {
       }
     }
 
+    if (state.phase === 'main') {
+      // Main auction done - go to unsold selection page
+      await supabase.from('rooms').update({ status: 'unsold_selection' }).eq('code', roomCode)
+      io.to(roomCode).emit('auction:phase', {
+        phase: 'unsold_selection',
+        soldCount: state.soldCount,
+        unsoldCount: state.unsoldCount,
+        totalPlayers: state.totalPlayers,
+      })
+      return
+    }
     await supabase.from('rooms').update({ status: 'finished' }).eq('code', roomCode)
     io.to(roomCode).emit('auction:phase', {
       phase: 'finished',

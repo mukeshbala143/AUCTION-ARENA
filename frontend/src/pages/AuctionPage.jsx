@@ -61,10 +61,11 @@ export default function AuctionPage() {
   const [skipped, setSkipped] = useState(false)
   const [skipCount, setSkipCount] = useState(0)
   const [paused, setPaused] = useState(false)
+  const [showEndConfirm, setShowEndConfirm] = useState(false)
   const [mobileTab, setMobileTab] = useState('player') 
   const [expandedTeam, setExpandedTeam] = useState(null) 
 
-  const isAdmin = room?.admin_id === user?.id
+  const isAdmin = room?.admin_id === user?.id || myTeam?.user_id === room?.admin_id && myTeam?.user_id === user?.id
 
   useEffect(() => {
     loadRoom()
@@ -123,6 +124,7 @@ export default function AuctionPage() {
       if (tp!==undefined) setTotal(tp)
       if (ph==='unsold_round') announcePhase(0)
       if (ph==='finished') setTimeout(()=>navigate(`/squads/${code}`), 3000)
+      if (ph==='unsold_selection') setTimeout(()=>navigate(`/unsold/${code}`), 2000)
     })
     
     socket.on('auction:paused', () => setPaused(true))
@@ -405,10 +407,17 @@ export default function AuctionPage() {
             <button onClick={()=>navigate('/dashboard')} className="text-[10px] px-2 py-1.5 rounded-lg text-muted whitespace-nowrap hidden md:inline-block"
                     style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>← Dashboard</button>
             {isAdmin && (
-              <button onClick={togglePause} className="text-[10px] px-2 py-1.5 rounded-lg font-bold"
-                      style={{background:paused?'rgba(76,175,125,0.15)':'rgba(242,166,35,0.1)',color:paused?'#4CAF7D':'#F2A623',border:`0.5px solid ${paused?'rgba(76,175,125,0.3)':'rgba(242,166,35,0.25)'}`}}>
-                {paused?'▶':'⏸'}
-              </button>
+              <>
+                <button onClick={togglePause} className="text-[10px] px-2 py-1.5 rounded-lg font-bold"
+                        style={{background:paused?'rgba(76,175,125,0.15)':'rgba(242,166,35,0.1)',color:paused?'#4CAF7D':'#F2A623',border:`0.5px solid ${paused?'rgba(76,175,125,0.3)':'rgba(242,166,35,0.25)'}`}}>
+                  {paused?'▶':'⏸'}
+                </button>
+                <button onClick={()=>setShowEndConfirm(true)}
+                        className="text-[10px] px-2 py-1.5 rounded-lg font-bold whitespace-nowrap"
+                        style={{background:'rgba(216,90,48,0.15)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.35)'}}>
+                  ⏹ End Main
+                </button>
+              </>
             )}
             <button onClick={toggleMute} className="text-[10px] px-2 py-1.5 rounded-lg text-muted"
                     style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>{muted?'🔇':'🔊'}</button>
@@ -576,6 +585,20 @@ export default function AuctionPage() {
           </div>
         </div>
       )}
+      {showEndConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{background:"rgba(0,0,0,0.85)",backdropFilter:"blur(8px)"}}>
+          <div className="text-center p-8 rounded-2xl w-full" style={{background:"#13131f",border:"1px solid rgba(216,90,48,0.4)",maxWidth:360}}>
+            <div className="text-4xl mb-4">⏹</div>
+            <div className="font-bebas text-3xl tracking-[3px] mb-2" style={{color:"#F07050"}}>End Main Auction?</div>
+            <p className="text-muted text-sm mb-6">Remaining players will be marked unsold, proceeding to the Unsold Round selection page.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={()=>setShowEndConfirm(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted" style={{background:"rgba(255,255,255,0.06)",border:"0.5px solid rgba(255,255,255,0.12)"}}>Cancel</button>
+              <button onClick={()=>{ setShowEndConfirm(false); getSocket().emit("admin:end_main", {roomCode:code, userId:user?.id}) }} className="px-6 py-2.5 rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#D85A30,#993C1D)",color:"#fff"}}>END AUCTION</button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {paused && !isAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -583,7 +606,7 @@ export default function AuctionPage() {
           <div className="text-center p-10 rounded-3xl" style={{background:'#13131f',border:'1px solid rgba(242,166,35,0.3)',maxWidth:380}}>
             <div className="text-5xl mb-4">⏸</div>
             <div className="font-bebas text-4xl tracking-[3px] text-gold mb-2">Auction Paused</div>
-            <p className="text-muted text-sm">Admin ne auction pause kiya hai. Resume hone ka wait karo…</p>
+            <p className="text-muted text-sm">The admin has paused the auction. Please wait for it to resume...</p>
           </div>
         </div>
       )}
