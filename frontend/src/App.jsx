@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { getSessionWithProfile, supabase } from './lib/supabase'
 import { useStore } from './store'
 
 import LandingPage    from './pages/LandingPage'
@@ -23,18 +23,42 @@ function Guard({ children }) {
   const { user, setUser, setProfile } = useStore()
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user)
-        const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single()
-        if (data) setProfile(data)
+    let mounted = true
+
+    const syncAuth = async () => {
+      try {
+        const { session, profile } = await getSessionWithProfile()
+
+        if (!mounted) return
+
+        setUser(session?.user ?? null)
+        setProfile(profile)
+      } finally {
+        if (mounted) setReady(true)
       }
+    }
+
+    syncAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, session) => {
+      if (session?.user) {
+        const { profile } = await getSessionWithProfile()
+        if (!mounted) return
+        setUser(session.user)
+        setProfile(profile)
+      } else {
+        if (!mounted) return
+        setUser(null)
+        setProfile(null)
+      }
+
       setReady(true)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => subscription.unsubscribe()
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   if (!ready) return (

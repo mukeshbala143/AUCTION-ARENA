@@ -1,11 +1,37 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signInWithGoogle } from '../lib/supabase'
+import { exchangeCodeForSessionIfPresent, signInWithGoogle } from '../lib/supabase'
+import { useStore } from '../store'
 
 export default function LoginPage() {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const { setUser, setProfile } = useStore()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    let mounted = true
+
+    const redirectAuthenticatedUser = async () => {
+      try {
+        const { session, profile } = await exchangeCodeForSessionIfPresent()
+
+        if (!mounted || !session?.user) return
+
+        setUser(session.user)
+        setProfile(profile)
+        navigate(profile ? '/dashboard' : '/setup', { replace: true })
+      } catch (error) {
+        console.error('Failed to restore session on login page:', error)
+      }
+    }
+
+    redirectAuthenticatedUser()
+
+    return () => {
+      mounted = false
+    }
+  }, [navigate, setProfile, setUser])
 
   const handleGoogle = async () => {
     setLoading(true)

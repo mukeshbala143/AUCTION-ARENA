@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { exchangeCodeForSessionIfPresent } from '../lib/supabase'
 import { useStore } from '../store'
 
 const SPORTS = [
@@ -26,6 +27,7 @@ const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
 export default function LandingPage() {
   const [code, setCode] = useState('')
   const [totalUsers, setTotalUsers] = useState(0)
+  const { setUser, setProfile } = useStore()
   const activeUsers = useStore(s => s.activeUsers)
   const navigate = useNavigate()
   const randomActiveUsers = useRef(Math.floor(Math.random() * (179 - 53 + 1)) + 53);
@@ -36,6 +38,30 @@ export default function LandingPage() {
   const [activeModal, setActiveModal] = useState(null)
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   const [showContactThankYou, setShowContactThankYou] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+
+    const redirectAuthenticatedUser = async () => {
+      try {
+        const { session, profile } = await exchangeCodeForSessionIfPresent()
+
+        if (!mounted || !session?.user) return
+
+        setUser(session.user)
+        setProfile(profile)
+        navigate(profile ? '/dashboard' : '/setup', { replace: true })
+      } catch (error) {
+        console.error('Failed to restore session on landing page:', error)
+      }
+    }
+
+    redirectAuthenticatedUser()
+
+    return () => {
+      mounted = false
+    }
+  }, [navigate, setProfile, setUser])
 
   useEffect(() => {
     // --- Fetch total registered users ---
