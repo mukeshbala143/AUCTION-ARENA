@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom' // Added Link here
+import { useParams, useNavigate, Link } from 'react-router-dom' 
 import { supabase } from '../lib/supabase'
 import { getSocket } from '../lib/socket'
 import { useStore } from '../store'
@@ -13,6 +13,11 @@ export default function LobbyPage() {
   const [activity, setActivity] = useState([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [myTeamId, setMyTeamId] = useState(null)
+  
+  // Naye states Edit feature ke liye
+  const [isEditing, setIsEditing] = useState(false)
+  const [editData, setEditData] = useState({})
+  const [saving, setSaving] = useState(false)
 
   const addLog = (msg) => setActivity(p=>[{msg, time: new Date().toLocaleTimeString()},...p].slice(0,20))
 
@@ -58,6 +63,39 @@ export default function LobbyPage() {
     addLog('📋 Room code copied')
   }
 
+  // --- EDIT LOGIC ---
+  const startEditing = () => {
+    setEditData({
+      purse_cr: room.purse_lakhs / 100,
+      squad_limit: room.squad_limit,
+      max_overseas: room.max_overseas,
+      player_order: room.player_order
+    })
+    setIsEditing(true)
+  }
+
+  const saveSettings = async () => {
+    setSaving(true)
+    const updates = {
+      purse_lakhs: editData.purse_cr * 100,
+      squad_limit: editData.squad_limit,
+      max_overseas: editData.max_overseas,
+      player_order: editData.player_order
+    }
+    
+    const { error } = await supabase.from('rooms').update(updates).eq('id', room.id)
+    
+    if (!error) {
+      setRoom({ ...room, ...updates })
+      setIsEditing(false)
+      addLog('⚙️ Admin updated room settings')
+    } else {
+      console.error("Failed to update settings", error)
+      addLog('❌ Failed to update settings')
+    }
+    setSaving(false)
+  }
+
   const readyCount = teams.filter(t=>t.is_ready).length
   const sportLabels = { ipl:'🏏 IPL Cricket', kabaddi:'🤼 Pro Kabaddi', football:'⚽ Football' }
 
@@ -80,8 +118,8 @@ export default function LobbyPage() {
       <div className="relative z-10 max-w-6xl mx-auto px-8 pt-24 pb-12">
         
         {/* BACK BUTTON */}
-        <Link to="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-muted hover:text-gold transition-colors mb-6 anim-1">
-          <span className="text-lg leading-none">←</span> Back to Dashboard
+        <Link to="/create-room" className="inline-flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-muted hover:text-gold transition-colors mb-6 anim-1">
+          <span className="text-lg leading-none">←</span> Back to Create Room
         </Link>
 
         {/* CODE BANNER */}
@@ -103,7 +141,7 @@ export default function LobbyPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
           {/* LEFT: TEAMS */}
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -171,24 +209,99 @@ export default function LobbyPage() {
           {/* RIGHT: ADMIN + ACTIVITY */}
           <div className="space-y-4">
             <div className="gold-card overflow-hidden anim-2">
-              <div className="px-5 py-3 flex items-center gap-2" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
-                <span>👑</span>
-                <span className="text-xs tracking-[2px] uppercase text-gold">{isAdmin?'Admin Controls':'Room Settings'}</span>
+              
+              {/* Header with Edit Button */}
+              <div className="px-5 py-4 flex items-center justify-between" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)', background:'rgba(255,255,255,0.02)'}}>
+                <div className="flex items-center gap-2">
+                  <span>👑</span>
+                  <span className="text-xs tracking-[2px] uppercase text-gold">{isAdmin?'Admin Controls':'Room Settings'}</span>
+                </div>
+                {isAdmin && !isEditing && (
+                  <button onClick={startEditing} className="text-[10px] tracking-widest font-bold text-muted hover:text-gold transition-colors px-2 py-1 rounded bg-white/5 border border-white/10 hover:border-gold/30">
+                    ✏️ EDIT
+                  </button>
+                )}
               </div>
+
               <div className="p-5 space-y-2">
-                {room && [
+                {/* 1. VIEW MODE (Read Only) */}
+                {room && !isEditing && [
                   ['Sport', {ipl:'🏏 IPL',kabaddi:'🤼 Kabaddi',football:'⚽ Football'}[room.sport]],
                   ['Purse', `₹${room.purse_lakhs/100} Cr`],
                   ['Squad Cap', `${room.squad_limit} players`],
                   ['Overseas', `${room.max_overseas} max`],
-                  ['Order', room.player_order],
+                  ['Order', room.player_order==='shuffled'?'Shuffled':'Serial'],
                 ].map(([k,v])=>(
                   <div key={k} className="flex justify-between items-center py-2" style={{borderBottom:'0.5px solid rgba(255,255,255,0.06)'}}>
                     <span className="text-xs text-muted">{k}</span>
                     <span className="font-mono text-xs font-bold">{v}</span>
                   </div>
                 ))}
-                {isAdmin && (
+
+                {/* 2. EDIT MODE (CreateRoomPage Style Sliders) */}
+                {room && isEditing && (
+                  <div className="space-y-5 py-2">
+                    {/* Purse Slider */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs uppercase tracking-widest text-muted">Purse per Team</label>
+                        <span className="font-mono text-gold font-bold text-sm">₹{editData.purse_cr} Cr</span>
+                      </div>
+                      <input type="range" min={50} max={200} step={5} value={editData.purse_cr} onChange={e=>setEditData({...editData, purse_cr: +e.target.value})} className="w-full accent-gold"/>
+                      <div className="flex justify-between text-xs text-muted mt-1"><span>₹50 Cr</span><span>₹200 Cr</span></div>
+                    </div>
+
+                    {/* Squad Cap Slider */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs uppercase tracking-widest text-muted">Squad Size</label>
+                        <span className="font-mono text-gold font-bold text-sm">{editData.squad_limit} players</span>
+                      </div>
+                      <input type="range" min={10} max={30} step={1} value={editData.squad_limit} onChange={e=>setEditData({...editData, squad_limit: +e.target.value})} className="w-full accent-gold"/>
+                      <div className="flex justify-between text-xs text-muted mt-1"><span>10</span><span>30</span></div>
+                    </div>
+
+                    {/* Overseas Cap Slider */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs uppercase tracking-widest text-muted">Overseas Cap</label>
+                        <span className="font-mono text-gold font-bold text-sm">{editData.max_overseas} max</span>
+                      </div>
+                      <input type="range" min={4} max={11} step={1} value={editData.max_overseas} onChange={e=>setEditData({...editData, max_overseas: +e.target.value})} className="w-full accent-gold"/>
+                      <div className="flex justify-between text-xs text-muted mt-1"><span>4</span><span>11</span></div>
+                    </div>
+
+                    {/* Player Order Toggle */}
+                    <div>
+                      <label className="text-xs uppercase tracking-widest text-muted mb-3 block">Player Order</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[['shuffled','🎲 Shuffled'], ['serial','📋 Serial']].map(([v,label])=>(
+                          <button key={v} onClick={()=>setEditData({...editData, player_order: v})} className="text-left p-3 rounded-lg transition-all"
+                                  style={{border:editData.player_order===v?'0.5px solid rgba(242,166,35,0.4)':'0.5px solid rgba(255,255,255,0.08)',background:editData.player_order===v?'rgba(242,166,35,0.06)':'rgba(255,255,255,0.02)'}}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full border transition-all flex-shrink-0"
+                                   style={{borderColor:editData.player_order===v?'#F2A623':'#7A7870',background:editData.player_order===v?'#F2A623':'transparent'}}/>
+                              <span className="text-xs font-semibold">{label}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Save / Cancel Buttons */}
+                    <div className="flex gap-3 pt-4" style={{borderTop:'0.5px solid rgba(255,255,255,0.07)'}}>
+                      <button onClick={()=>setIsEditing(false)} className="flex-1 py-2.5 rounded-lg text-xs font-semibold border border-white/10 text-muted hover:bg-white/5 transition-colors">
+                        Cancel
+                      </button>
+                      <button onClick={saveSettings} disabled={saving} className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-gold/20 text-gold border border-gold/30 hover:bg-gold/30 transition-colors disabled:opacity-50">
+                        {saving ? 'Saving...' : '✓ Save Changes'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Start Auction Button */}
+                {isAdmin && !isEditing && (
                   <div className="pt-3">
                     <button onClick={startAuction} disabled={teams.length<2}
                             className="btn-gold w-full justify-center text-sm" style={{marginTop:'0.5rem'}}>
@@ -202,9 +315,10 @@ export default function LobbyPage() {
               </div>
             </div>
 
+            {/* Room Activity Log */}
             <div className="surface overflow-hidden anim-3">
               <div className="px-4 py-3 text-xs tracking-[2px] uppercase text-muted" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>Room Activity</div>
-              <div className="p-3 space-y-1.5 max-h-56 overflow-y-auto">
+              <div className="p-3 space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar">
                 {activity.length===0&&<p className="text-xs text-muted text-center py-4">No activity yet</p>}
                 {activity.map((a,i)=>(
                   <div key={i} className="flex justify-between text-xs py-1.5 px-2 rounded-lg" style={{background:'rgba(255,255,255,0.02)'}}>

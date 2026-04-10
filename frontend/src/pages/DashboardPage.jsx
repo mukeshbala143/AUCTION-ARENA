@@ -351,7 +351,7 @@ export default function DashboardPage() {
           <div className="text-xs tracking-[3px] uppercase text-gold flex items-center gap-3 mb-2">History<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/></div>
           <h2 className="font-bebas text-2xl sm:text-3xl tracking-[2px] sm:tracking-[3px] mb-5">Your Recent Rooms</h2>
           <div className="surface overflow-hidden hidden md:block">
-            <div className="grid gap-0" style={{gridTemplateColumns:'1fr 90px 90px 110px 120px'}}>
+            <div className="grid gap-0" style={{gridTemplateColumns:'1fr 90px 90px 100px 130px'}}>
               {['Room Code','Sport','Teams','Status','Action'].map(h=>(
                 <div key={h} className="px-5 py-3 text-xs tracking-widest uppercase text-muted" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>{h}</div>
               ))}
@@ -366,7 +366,7 @@ export default function DashboardPage() {
               const room = r.rooms; if (!room) return null
               const sc = SC[room.status]||SC.waiting
               return (
-                <div key={i} className="grid cursor-pointer transition-colors" style={{gridTemplateColumns:'1fr 90px 90px 110px 120px',borderBottom:'0.5px solid rgba(255,255,255,0.05)'}}
+                <div key={i} className="grid cursor-pointer transition-colors" style={{gridTemplateColumns:'1fr 90px 90px 100px 130px',borderBottom:'0.5px solid rgba(255,255,255,0.05)'}}
                      onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.02)'}
                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   <div className="px-5 py-4 flex items-center gap-2">
@@ -379,9 +379,9 @@ export default function DashboardPage() {
                     <span className="text-xs px-2 py-1 rounded font-bold tracking-widest uppercase" style={{background:sc.bg,color:sc.c}}>{sc.l}</span>
                   </div>
                   <div className="px-3 py-4">
-                    <Link to={room.status==='finished'?`/squads/${room.code}`:`/lobby/${room.code}`}
-                          className="text-xs text-gold font-bold no-underline hover:text-yellow-300 transition-colors">
-                      {room.status==='finished'?'View Squads →':'Rejoin →'}
+                    <Link to={room.status==='finished'?`/squads/${room.code}`:room.status==='active'||room.status==='unsold_round'?`/auction/${room.code}`:`/lobby/${room.code}`}
+                          className="text-xs text-gold font-bold no-underline hover:text-yellow-300 transition-colors whitespace-nowrap">
+                      {room.status==='finished'?'View Squads →':room.status==='active'||room.status==='unsold_round'?'Rejoin Auction →':'Rejoin →'}
                     </Link>
                   </div>
                 </div>
@@ -411,11 +411,11 @@ export default function DashboardPage() {
                     <span className="text-[10px] px-2 py-1 rounded font-bold tracking-widest uppercase shrink-0" style={{background:sc.bg,color:sc.c}}>{sc.l}</span>
                   </div>
                   <Link
-                    to={room.status==='finished'?`/squads/${room.code}`:`/lobby/${room.code}`}
-                    className="block w-full text-center text-xs font-bold no-underline rounded-lg px-3 py-2"
+                    to={room.status==='finished'?`/squads/${room.code}`:room.status==='active'||room.status==='unsold_round'?`/auction/${room.code}`:`/lobby/${room.code}`}
+                    className="block w-full text-center text-xs font-bold no-underline rounded-lg px-3 py-2 whitespace-nowrap"
                     style={{background:'rgba(242,166,35,0.12)', border:'0.5px solid rgba(242,166,35,0.4)', color:'#F2A623'}}
                   >
-                    {room.status==='finished'?'View Squads →':'Rejoin →'}
+                    {room.status==='finished'?'View Squads →':room.status==='active'||room.status==='unsold_round'?'Rejoin Auction →':'Rejoin →'}
                   </Link>
                 </div>
               )
@@ -426,18 +426,21 @@ export default function DashboardPage() {
         {/* FEEDBACK SECTION */}
         <div className="relative z-10 w-full mt-12 sm:mt-16 mb-8 flex flex-col items-center">
           <h3 className="font-bebas text-2xl tracking-[3px] text-gold mb-4 uppercase">Share Your Experience</h3>
-          <div className="w-full max-w-2xl px-0 sm:px-4">
-            <form onSubmit={handleFeedbackSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
+          <div className="w-full max-w-2xl px-4 sm:px-4"> 
+            {/* ✅ FORM CLASSES CHANGED: items-stretch to items-center */}
+            <form onSubmit={handleFeedbackSubmit} className="flex flex-col sm:flex-row items-center gap-3 w-full">
               <input 
                 type="text" 
                 placeholder="Give us your feedback..." 
                 value={newFeedback}
                 onChange={(e) => setNewFeedback(e.target.value)}
                 disabled={isSubmittingFeedback}
-                className="flex-1 px-4 sm:px-6 py-3 text-sm sm:text-base text-white rounded-xl outline-none transition-all shadow-md focus:border-gold disabled:opacity-50"
+                /* ✅ INPUT CLASS CHANGED: w-full added to explicitly keep it full width */
+                className="w-full sm:flex-1 px-4 sm:px-6 py-3 text-sm sm:text-base text-white rounded-xl outline-none transition-all shadow-md focus:border-gold disabled:opacity-50"
                 style={{background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.12)'}}
               />
-              <button type="submit" disabled={isSubmittingFeedback} className="w-full sm:w-auto px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-widest rounded-xl transition-all shadow-md hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed" style={{background:'linear-gradient(135deg, #F2A623, #D85A30)', color:'#07070e'}}>
+              {/* ✅ BUTTON CLASS CHANGED: w-auto added instead of w-full */}
+              <button type="submit" disabled={isSubmittingFeedback} className="w-auto px-8 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-widest rounded-xl transition-all shadow-md hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed" style={{background:'linear-gradient(135deg, #F2A623, #D85A30)', color:'#07070e'}}>
                 {isSubmittingFeedback ? '⏳ Sending...' : 'Send Feedback'}
               </button>
             </form>

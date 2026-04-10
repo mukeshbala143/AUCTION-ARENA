@@ -70,7 +70,6 @@ export default function AuctionPage() {
     loadRoom()
     const socket = getSocket()
     
-    // ✅ BUG FIX: Agar connection drop ho jaye, toh reconnect par wapas room join karein
     const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
     joinRoom()
     socket.on('connect', joinRoom)
@@ -130,12 +129,11 @@ export default function AuctionPage() {
     socket.on('auction:resumed', () => setPaused(false))
     
     return () => {
-      socket.off('connect', joinRoom)
       socket.removeAllListeners()
+      socket.emit('room:leave', { roomCode: code })
     }
   }, [code])
 
-  // ✅ BUG FIX: Refresh par persistent squad fetch karna (Teams Box update)
   const loadRoom = async () => {
     const { data } = await supabase.from('rooms')
       .select(`
@@ -169,7 +167,6 @@ export default function AuctionPage() {
     if (!lot || !myTeam || paused) return
     const newAmt = (bid?.amount||0) + inc
     if (myTeam.purse_remaining_lakhs < newAmt) return
-    // Optimistic UI Update (Lag feel nahi hoga)
     setBid({ amount: newAmt, teamId: myTeam.id })
     getSocket().emit('bid:place', { roomCode:code, lotId:lot.id, teamId:myTeam.id, amountLakhs:newAmt, userId:user?.id })
   }
@@ -260,47 +257,57 @@ export default function AuctionPage() {
     </div>
   )
 
-  const BidButtons = () => (
-    <div className="flex flex-col gap-2 w-full">
-      {squadFull ? (
-        <div className="w-full py-3 rounded-xl text-center text-xs font-bold text-muted" style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>Squad Full</div>
-      ) : overseasFull ? (
-        <div className="w-full py-3 rounded-xl text-center text-xs font-bold" style={{background:'rgba(216,90,48,0.08)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.2)'}}>Overseas Cap Reached</div>
-      ) : purseInsuff ? (
-        <div className="w-full py-3 rounded-xl text-center text-xs font-bold text-muted" style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>Insufficient Funds</div>
-      ) : (
-        <>
-          <button onClick={()=>placeBid(25)} disabled={!canBid||skipped||isLeading}
-                  className="w-full py-3 rounded-xl font-bold text-bg text-sm tracking-widest uppercase transition-all disabled:opacity-40"
-                  style={{background:'linear-gradient(135deg,#F2A623,#BA7517)',boxShadow:'0 0 20px rgba(242,166,35,0.2)',opacity:isLeading?0.35:1}}>
-            + ₹25 Lakhs
-          </button>
-          {(bid?.amount||0)>=500 && (
-            <button onClick={()=>placeBid(50)} disabled={!canBid||skipped||isLeading}
-                    className="w-full py-3 rounded-xl font-bold text-sm tracking-widest uppercase transition-all disabled:opacity-40"
-                    style={{background:'rgba(216,90,48,0.15)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.35)',opacity:isLeading?0.35:1}}>
-              + ₹50 Lakhs
-            </button>
-          )}
-          {(bid?.amount||0)>=700 && (
-            <button onClick={()=>placeBid(100)} disabled={!canBid||skipped||isLeading}
-                    className="w-full py-3 rounded-xl font-bold text-sm tracking-widest uppercase transition-all disabled:opacity-40"
-                    style={{background:'rgba(181,124,245,0.15)',color:'#B57CF5',border:'0.5px solid rgba(181,124,245,0.35)',opacity:isLeading?0.35:1}}>
-              + ₹1 Crore
-            </button>
-          )}
-        </>
-      )}
-      {/* ✅ UPDATED: Disable if user is already leading the bid */}
-      <button onClick={skipPlayer} disabled={skipped || paused || isLeading}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold text-muted transition-all disabled:opacity-30"
-              style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
-        {skipped?'✓ Skipped':'Skip Player'}{skipCount>0&&<span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}
-      </button>
-    </div>
-  )
+  // ✅ UPDATED BidButtons component
+  const BidButtons = () => {
+    // Check if we need to show a warning on top of the buttons
+    let warningMsg = null;
+    if (squadFull) warningMsg = 'Squad Limit Reached';
+    else if (overseasFull) warningMsg = 'Overseas Cap Reached';
+    else if (purseInsuff) warningMsg = 'Insufficient Funds';
 
-  // ✅ BUG FIX: Accordion Style Expandable Teams List
+    return (
+      <div className="flex flex-col gap-2 w-full">
+        {/* Warning Banner */}
+        {warningMsg && (
+          <div className="w-full py-1.5 rounded-lg text-center text-[10px] tracking-[1px] uppercase font-bold" 
+               style={{background:'rgba(226,75,74,0.1)', color:'#E24B4A', border:'0.5px solid rgba(226,75,74,0.3)'}}>
+            ⚠ {warningMsg}
+          </div>
+        )}
+
+        {/* Bidding Buttons - always rendered but visually disabled/dull when canBid is false */}
+        <button onClick={()=>placeBid(25)} disabled={!canBid||skipped||isLeading}
+                className="w-full py-3 rounded-xl font-bold text-bg text-sm tracking-widest uppercase transition-all disabled:opacity-30 disabled:saturate-0 disabled:cursor-not-allowed"
+                style={{background:'linear-gradient(135deg,#F2A623,#BA7517)',boxShadow:(!canBid||skipped||isLeading)?'none':'0 0 20px rgba(242,166,35,0.2)'}}>
+          + ₹25 Lakhs
+        </button>
+        
+        {(bid?.amount||0)>=500 && (
+          <button onClick={()=>placeBid(50)} disabled={!canBid||skipped||isLeading}
+                  className="w-full py-3 rounded-xl font-bold text-sm tracking-widest uppercase transition-all disabled:opacity-30 disabled:saturate-0 disabled:cursor-not-allowed"
+                  style={{background:'rgba(216,90,48,0.15)',color:'#F07050',border:'0.5px solid rgba(216,90,48,0.35)'}}>
+            + ₹50 Lakhs
+          </button>
+        )}
+        
+        {(bid?.amount||0)>=700 && (
+          <button onClick={()=>placeBid(100)} disabled={!canBid||skipped||isLeading}
+                  className="w-full py-3 rounded-xl font-bold text-sm tracking-widest uppercase transition-all disabled:opacity-30 disabled:saturate-0 disabled:cursor-not-allowed"
+                  style={{background:'rgba(181,124,245,0.15)',color:'#B57CF5',border:'0.5px solid rgba(181,124,245,0.35)'}}>
+            + ₹1 Crore
+          </button>
+        )}
+
+        {/* Skip Button */}
+        <button onClick={skipPlayer} disabled={skipped || paused || isLeading}
+                className="w-full py-2.5 rounded-xl text-xs font-semibold text-muted transition-all disabled:opacity-30"
+                style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
+          {skipped?'✓ Skipped':'Skip Player'}{skipCount>0&&<span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}
+        </button>
+      </div>
+    );
+  }
+
   const TeamsList = () => (
     <div className="flex flex-col gap-2 p-2 pb-6">
       <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1">Teams</div>
@@ -363,23 +370,19 @@ export default function AuctionPage() {
     </div>
   )
 
-  // ─── TOP BAR ────────────────────────────────────────────────────────────
   return (
     <div className="h-screen bg-bg flex flex-col overflow-hidden relative">
       <div className="orb" style={{width:500,height:500,background:'rgba(242,166,35,0.06)',top:-200,right:-150}}/>
 
-      {/* ✅ FIXED RESPONSIVE TOP BAR (Two Rows on Mobile, One Row on Desktop) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-y-2 px-3 py-2 flex-shrink-0 relative z-10"
            style={{background:'rgba(7,7,14,0.95)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
         
-        {/* ROW 1 (Mobile) / Left Side (Desktop): Logo and Back Button */}
         <div className="flex items-center justify-between w-full md:w-auto md:justify-start gap-2">
           <span className="font-bebas text-xl tracking-[3px] text-gold">AUCTION<span className="text-white hidden sm:inline"> ARENA</span></span>
           <button onClick={()=>navigate('/dashboard')} className="text-[10px] px-2 py-1.5 rounded-lg text-muted whitespace-nowrap md:hidden"
                   style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>← Dashboard</button>
         </div>
 
-        {/* ROW 2 (Mobile) / Right Side (Desktop): Stats and Controls */}
         <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-2">
           
           <div className="flex items-center gap-1.5 md:gap-2">
@@ -413,7 +416,6 @@ export default function AuctionPage() {
         </div>
       </div>
 
-      {/* ══ DESKTOP 3-COL ══ */}
       <div className="hidden md:grid flex-1 overflow-hidden relative z-10"
            style={{gridTemplateColumns:'210px 1fr 250px'}}>
         <div className="overflow-y-auto border-r custom-scrollbar" style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.2)'}}>
@@ -450,7 +452,6 @@ export default function AuctionPage() {
         </div>
       </div>
 
-      {/* ══ MOBILE LAYOUT ══ */}
       <div className="flex md:hidden flex-col flex-1 overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {mobileTab==='player' && <div className="px-3 py-3"><PlayerCard compact={true}/></div>}
@@ -510,7 +511,6 @@ export default function AuctionPage() {
           {mobileTab==='teams' && <TeamsList/>}
         </div>
 
-        {/* ── MOBILE BOTTOM TAB BAR ── */}
         <div className="flex-shrink-0 flex relative z-20"
              style={{background:'rgba(7,7,14,0.98)',borderTop:'0.5px solid rgba(255,255,255,0.09)'}}>
           <button onClick={()=>setMobileTab('player')}
@@ -544,7 +544,6 @@ export default function AuctionPage() {
         </div>
       </div>
 
-      {/* ══ OVERLAYS ══ */}
       {soldOverlay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
              style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)'}}>
