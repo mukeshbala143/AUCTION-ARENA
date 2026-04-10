@@ -6,11 +6,40 @@ const cors     = require('cors')
 const { createClient } = require('@supabase/supabase-js')
 const app    = express()
 const server = http.createServer(app)
+const DEFAULT_FRONTEND_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://auctionarena.org',
+  'https://www.auctionarena.org',
+]
+
+function getAllowedOrigins() {
+  const envOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_URLS,
+  ]
+    .filter(Boolean)
+    .flatMap(value => value.split(','))
+    .map(origin => origin.trim())
+    .filter(Boolean)
+
+  return [...new Set([...DEFAULT_FRONTEND_ORIGINS, ...envOrigins])]
+}
+
+const allowedOrigins = getAllowedOrigins()
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    return callback(new Error(`CORS blocked for origin: ${origin}`))
+  },
+  credentials: true,
+}
+
 const io     = new Server(server, {
-  cors: { origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }
+  cors: corsOptions
 })
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }))
+app.use(cors(corsOptions))
 app.use(express.json())
 
 app.get('/ping', (_req, res) => res.json({ ok: true, ts: Date.now() }))

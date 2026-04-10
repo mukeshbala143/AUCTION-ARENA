@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { API_BASE_URL } from '../lib/config'
 
 const STEPS = ['Parsing all squad data and player statistics…','Evaluating batting depth and opening combinations…','Scoring bowling attack — pace, spin, powerplay, death…','Analysing overseas slot optimization and budget efficiency…','Ranking all teams and generating written insights…']
 const fmt = l => l>=100?`₹${(l/100).toFixed(0)} Cr`:`${l} L`
@@ -45,7 +46,7 @@ export default function AnalysisPage() {
     try {
       // Securely call the backend, which in turn calls the Gemini API.
       // This avoids exposing the API key on the client-side.
-      const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/analysis/${code}`, {
+      const res = await fetch(`${API_BASE_URL}/api/analysis/${code}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

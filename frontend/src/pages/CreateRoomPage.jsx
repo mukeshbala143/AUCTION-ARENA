@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useStore } from '../store'
+import { API_BASE_URL } from '../lib/config'
 
 const SPORTS = [
   { id:'ipl',      icon:'🏏', label:'IPL Cricket',   color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.4)' },
@@ -34,7 +35,7 @@ export default function CreateRoomPage() {
   const handleCreate = async () => {
     if (!user || !profile) return
     setLoading(true)
-    const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/rooms`, {
+    const res = await fetch(`${API_BASE_URL}/api/rooms`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ sport, adminId:user.id, teamName:profile?.team_name, roomName:roomName||null, code, settings:{ squadLimit:squad, purseLakhs:purse*100, maxOverseas:overseas, playerOrder:order } })
     })

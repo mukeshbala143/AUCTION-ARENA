@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
+import { API_BASE_URL } from '../lib/config'
 
 const SPORTS = [
   { id:'ipl', icon:'🏏', tag:'IPL Cricket', name:'Indian Premier\nLeague', color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.4)',
@@ -41,7 +42,7 @@ export default function LandingPage() {
     // --- Fetch total registered users ---
     const fetchUserCount = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/stats`);
+        const res = await fetch(`${API_BASE_URL}/api/stats`);
         if (res.ok) {
           const data = await res.json();
           setTotalUsers(data.totalUsers || 0);

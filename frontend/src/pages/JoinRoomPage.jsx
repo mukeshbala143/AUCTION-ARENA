@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store'
+import { API_BASE_URL } from '../lib/config'
 
 export default function JoinRoomPage() {
   const [params] = useSearchParams()
@@ -36,7 +37,7 @@ export default function JoinRoomPage() {
     if (c.length !== 6) { setError('Please enter a 6-character room code.'); return }
     setLoading(true); setError('')
     try {
-      const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/rooms/${c}`)
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${c}`)
       if (!res.ok) { setError('Room not found. Check the code and try again.'); setLoading(false); return }
       const data = await res.json()
       setRoom(data); setLoading(false)
@@ -47,7 +48,7 @@ export default function JoinRoomPage() {
     if (!room || !user) return
     setLoading(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/rooms/${room.code}/join`,{
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${room.code}/join`,{
         method:'POST', 
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ userId: user.id })

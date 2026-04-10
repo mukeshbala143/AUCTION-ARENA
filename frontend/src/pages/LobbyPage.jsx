@@ -196,7 +196,7 @@ export default function LobbyPage() {
             <div className="p-5 rounded-2xl" style={{background:'rgba(242,166,35,0.04)',border:'0.5px solid rgba(242,166,35,0.15)'}}>
               <div className="text-xs tracking-[2px] uppercase text-gold mb-3">📩 Invite Friends</div>
               <div className="space-y-2">
-                {[`Share the code ${code} with friends`,`They visit auctionarena.gg and enter the code`,'Once ready, admin starts the auction'].map((s,i)=>(
+                {[`Share the code ${code} with friends`,`They visit auctionarena.org and enter the code`,'Once ready, admin starts the auction'].map((s,i)=>(
                   <div key={i} className="flex items-start gap-2 text-sm text-muted">
                     <span className="w-5 h-5 rounded-full bg-gold/10 text-gold text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">{i+1}</span>
                     <span style={{color:i===0?'#E8E2D9':'inherit'}}>{i===0?<><strong className="text-gold font-mono">{code}</strong>{' '}</>: null}{i===0?'— '+s.split(' ').slice(4).join(' '):s}</span>
