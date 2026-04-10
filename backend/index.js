@@ -42,6 +42,16 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 app.use(cors(corsOptions))
 app.use(express.json())
 
+app.get('/', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'auction-arena-backend',
+    message: 'Backend is live. Use /ping or /api/* endpoints.',
+    frontend: 'https://www.auctionarena.org',
+    timestamp: Date.now(),
+  })
+})
+
 app.get('/ping', (_req, res) => res.json({ ok: true, ts: Date.now() }))
 
 app.use('/api/rooms',    require('./src/routes/rooms')(supabase))
