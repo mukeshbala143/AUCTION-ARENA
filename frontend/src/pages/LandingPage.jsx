@@ -202,7 +202,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-muted text-xs tracking-[3px] uppercase hidden sm:flex">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex-col items-center gap-2 text-muted text-xs tracking-[3px] uppercase hidden sm:flex">
           Scroll<div className="w-px h-10" style={{background:'linear-gradient(to bottom,#F2A623,transparent)'}}/>
         </div>
       </section>
