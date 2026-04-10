@@ -4,7 +4,7 @@
 - **Frontend**: React 18 + Vite + TailwindCSS + Framer Motion
 - **Backend**: Node.js + Express + Socket.io
 - **Database**: Supabase (PostgreSQL + Auth + Realtime)
-- **AI Analysis**: Anthropic Claude API
+- **AI Analysis**: Google Gemini API
 - **Voice**: Web Speech API (fast lady voice, no cost)
 - **Excel Export**: SheetJS (runs in browser)
 
@@ -35,7 +35,6 @@ cd backend && npm install
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_SOCKET_URL=http://localhost:3001
-VITE_ANTHROPIC_API_KEY=sk-ant-your-key
 ```
 
 **backend/.env** (copy from .env.example):
