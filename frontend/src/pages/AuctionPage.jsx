@@ -159,10 +159,19 @@ export default function AuctionPage() {
     
     return () => {
       stopAnnouncements()
-      socket.removeAllListeners()
+      socket.off('connect', joinRoom)
+      socket.off('auction:player_up')
+      socket.off('auction:bid')
+      socket.off('auction:timer')
+      socket.off('auction:skip')
+      socket.off('auction:sold')
+      socket.off('auction:unsold')
+      socket.off('auction:phase')
+      socket.off('auction:paused')
+      socket.off('auction:resumed')
       socket.emit('room:leave', { roomCode: code })
     }
-  }, [code])
+  }, [code, user])
 
   const loadRoom = async () => {
     const { data } = await supabase.from('rooms')
