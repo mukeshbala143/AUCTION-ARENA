@@ -12,6 +12,7 @@ const DEFAULT_FRONTEND_ORIGINS = [
   'https://auctionarena.org',
   'https://www.auctionarena.org',
 ]
+const VERCEL_PREVIEW_ORIGIN = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i
 
 function getAllowedOrigins() {
   const envOrigins = [
@@ -29,7 +30,9 @@ function getAllowedOrigins() {
 const allowedOrigins = getAllowedOrigins()
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    if (!origin || allowedOrigins.includes(origin) || VERCEL_PREVIEW_ORIGIN.test(origin)) {
+      return callback(null, true)
+    }
     return callback(new Error(`CORS blocked for origin: ${origin}`))
   },
   credentials: true,
