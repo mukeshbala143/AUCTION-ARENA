@@ -36,65 +36,6 @@ const FLAGS = {'India':'🇮🇳','Australia':'🇦🇺','England':'🏴󠁧󠁢
 const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'},raider:{c:'#F07050',bg:'rgba(216,90,48,0.12)',b:'rgba(216,90,48,0.25)'},defender:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},st:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},cm:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},cb:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},gk:{c:'#C99EF5',bg:'rgba(181,124,245,0.1)',b:'rgba(181,124,245,0.2)'}}
 const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D','#A8DADC','#F72585']
 
-function PlayerCard({ compact, player, lotNum, total, rc, sportIcon, tab, setTab, TABS, statFields, statsObj }) {
-  if (!player) {
-    return (
-      <div className="flex flex-col items-center justify-center h-48 text-muted">
-        <div className="text-4xl mb-3">⏳</div>
-        <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START…</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className={`glass ${compact?'p-4':'p-6'} w-full flex flex-col items-center text-center`}>
-      <div className="text-[10px] tracking-[2px] uppercase text-muted mb-2">
-        Lot #{lotNum} of {total>0?total:'…'}
-      </div>
-      <div className={`${compact?'w-16 h-16':'w-20 h-20'} rounded-full flex items-center justify-center text-3xl mb-3 relative flex-shrink-0`}
-           style={{background:'linear-gradient(135deg,#1a2535,#2a1a2a)',border:`2.5px solid ${rc.b}`,boxShadow:`0 0 35px ${rc.bg}`}}>
-        {player.photo_url && (
-          <img src={player.photo_url} alt={player.name} className="w-full h-full rounded-full object-cover"
-               onError={e=>{ e.target.style.display='none'; if(e.target.nextSibling) e.target.nextSibling.style.display='block' }}/>
-        )}
-        <span style={{display:player.photo_url?'none':'block'}}>{sportIcon}</span>
-        <span className="absolute -bottom-1 -right-1 text-sm"
-              style={{background:'#13131f',borderRadius:'50%',padding:'2px'}}>{FLAGS[player.country]||'🌍'}</span>
-      </div>
-      <h2 className={`font-bebas ${compact?'text-2xl':'text-3xl'} tracking-[3px] leading-none mb-1`}>{player.name}</h2>
-      <div className="text-[10px] uppercase tracking-[2px] text-muted mb-2 flex flex-wrap items-center justify-center gap-1.5 font-semibold">
-        {player.batting_style && player.batting_style!=='none' && <span className="text-white/70">{formatStyle(player.batting_style)} Bat</span>}
-        {player.batting_style && player.batting_style!=='none' && player.bowling_style && player.bowling_style!=='none' && <span className="opacity-40">•</span>}
-        {player.bowling_style && player.bowling_style!=='none' && <span className="text-white/70">{formatStyle(player.bowling_style)}</span>}
-      </div>
-      <div className="flex flex-wrap gap-1.5 justify-center mb-3">
-        <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>{player.role?.replace('_',' ')}</span>
-        {player.is_capped && <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(100,149,237,0.08)',color:'#8ABCE8',border:'0.5px solid rgba(100,149,237,0.2)'}}>Capped</span>}
-        {player.is_overseas && <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(242,166,35,0.08)',color:'#F2A623',border:'0.5px solid rgba(242,166,35,0.2)'}}>Overseas</span>}
-        <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(76,175,125,0.08)',color:'#6DCFA0',border:'0.5px solid rgba(76,175,125,0.2)'}}>Base: {fmt(player.base_price_lakhs)}</span>
-      </div>
-      {TABS.length>1 && (
-        <div className="flex w-full rounded-lg overflow-hidden mb-3" style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>
-          {TABS.map(([k,l])=>(
-            <button key={k} onClick={()=>setTab(k)} className="flex-1 py-1.5 text-[10px] tracking-wider uppercase transition-colors"
-                    style={{background:tab===k?'rgba(242,166,35,0.1)':'transparent',color:tab===k?'#F2A623':'#7A7870',borderRight:'0.5px solid rgba(255,255,255,0.07)'}}>
-              {l}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="grid grid-cols-3 gap-1.5 w-full">
-        {statFields.map(([key,label])=>(
-          <div key={key} className="rounded-lg py-2 px-1 text-center" style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.07)'}}>
-            <div className="font-mono text-sm font-semibold">{statsObj[key]??'—'}</div>
-            <div className="text-muted text-[9px] uppercase tracking-wide mt-0.5">{label}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function AuctionPage() {
   const { code } = useParams()
   const navigate = useNavigate()
@@ -255,7 +196,6 @@ export default function AuctionPage() {
   const placeBid = (inc) => {
     if (!lot || !myTeam || paused) return
     primeAnnouncements()
-    stopAnnouncements()
     const newAmt = (bid?.amount||0) + inc
     if (myTeam.purse_remaining_lakhs < newAmt) return
     setBid({ amount: newAmt, teamId: myTeam.id })
@@ -265,7 +205,6 @@ export default function AuctionPage() {
   const skipPlayer = () => {
     if (!lot || !myTeam || paused) return
     primeAnnouncements()
-    stopAnnouncements()
     setSkipped(true)
     getSocket().emit('bid:skip', { roomCode:code, lotId:lot.id, teamId:myTeam.id })
   }
@@ -302,6 +241,59 @@ export default function AuctionPage() {
   const sportIcon = room?.sport==='kabaddi'?'🤼':room?.sport==='football'?'⚽':'🏏'
 
   // ─── SUB-COMPONENTS ────────────────────────────────────────────────────
+
+  const PlayerCard = ({ compact }) => !player ? (
+    <div className="flex flex-col items-center justify-center h-48 text-muted">
+      <div className="text-4xl mb-3">⏳</div>
+      <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START…</p>
+    </div>
+  ) : (
+    <div className={`glass ${compact?'p-4':'p-6'} w-full flex flex-col items-center text-center`}>
+      <div className="text-[10px] tracking-[2px] uppercase text-muted mb-2">
+        Lot #{lotNum} of {total>0?total:'…'}
+      </div>
+      <div className={`${compact?'w-16 h-16':'w-20 h-20'} rounded-full flex items-center justify-center text-3xl mb-3 relative flex-shrink-0`}
+           style={{background:'linear-gradient(135deg,#1a2535,#2a1a2a)',border:`2.5px solid ${rc.b}`,boxShadow:`0 0 35px ${rc.bg}`}}>
+        {player.photo_url && (
+          <img src={player.photo_url} alt={player.name} className="w-full h-full rounded-full object-cover"
+               onError={e=>{ e.target.style.display='none'; if(e.target.nextSibling) e.target.nextSibling.style.display='block' }}/>
+        )}
+        <span style={{display:player.photo_url?'none':'block'}}>{sportIcon}</span>
+        <span className="absolute -bottom-1 -right-1 text-sm"
+              style={{background:'#13131f',borderRadius:'50%',padding:'2px'}}>{FLAGS[player.country]||'🌍'}</span>
+      </div>
+      <h2 className={`font-bebas ${compact?'text-2xl':'text-3xl'} tracking-[3px] leading-none mb-1`}>{player.name}</h2>
+      <div className="text-[10px] uppercase tracking-[2px] text-muted mb-2 flex flex-wrap items-center justify-center gap-1.5 font-semibold">
+        {player.batting_style && player.batting_style!=='none' && <span className="text-white/70">{formatStyle(player.batting_style)} Bat</span>}
+        {player.batting_style && player.batting_style!=='none' && player.bowling_style && player.bowling_style!=='none' && <span className="opacity-40">•</span>}
+        {player.bowling_style && player.bowling_style!=='none' && <span className="text-white/70">{formatStyle(player.bowling_style)}</span>}
+      </div>
+      <div className="flex flex-wrap gap-1.5 justify-center mb-3">
+        <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>{player.role?.replace('_',' ')}</span>
+        {player.is_capped && <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(100,149,237,0.08)',color:'#8ABCE8',border:'0.5px solid rgba(100,149,237,0.2)'}}>Capped</span>}
+        {player.is_overseas && <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(242,166,35,0.08)',color:'#F2A623',border:'0.5px solid rgba(242,166,35,0.2)'}}>Overseas</span>}
+        <span className="text-[10px] tracking-widest uppercase font-bold px-2 py-1 rounded" style={{background:'rgba(76,175,125,0.08)',color:'#6DCFA0',border:'0.5px solid rgba(76,175,125,0.2)'}}>Base: {fmt(player.base_price_lakhs)}</span>
+      </div>
+      {TABS.length>1 && (
+        <div className="flex w-full rounded-lg overflow-hidden mb-3" style={{border:'0.5px solid rgba(255,255,255,0.08)'}}>
+          {TABS.map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} className="flex-1 py-1.5 text-[10px] tracking-wider uppercase transition-colors"
+                    style={{background:tab===k?'rgba(242,166,35,0.1)':'transparent',color:tab===k?'#F2A623':'#7A7870',borderRight:'0.5px solid rgba(255,255,255,0.07)'}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-3 gap-1.5 w-full">
+        {statFields.map(([key,label])=>(
+          <div key={key} className="rounded-lg py-2 px-1 text-center" style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.07)'}}>
+            <div className="font-mono text-sm font-semibold">{statsObj[key]??'—'}</div>
+            <div className="text-muted text-[9px] uppercase tracking-wide mt-0.5">{label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   // ✅ UPDATED BidButtons component
   const BidButtons = () => {
@@ -475,21 +467,7 @@ export default function AuctionPage() {
           <TeamsList/>
         </div>
         <div className="overflow-y-auto flex flex-col items-center justify-start px-6 py-5 custom-scrollbar">
-          <div className="w-full max-w-[460px]">
-            <PlayerCard
-              compact={false}
-              player={player}
-              lotNum={lotNum}
-              total={total}
-              rc={rc}
-              sportIcon={sportIcon}
-              tab={tab}
-              setTab={setTab}
-              TABS={TABS}
-              statFields={statFields}
-              statsObj={statsObj}
-            />
-          </div>
+          <div className="w-full max-w-[460px]"><PlayerCard compact={false}/></div>
         </div>
         <div className="overflow-y-auto border-l flex flex-col items-center py-5 px-4 custom-scrollbar"
              style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.15)'}}>
@@ -521,23 +499,7 @@ export default function AuctionPage() {
 
       <div className="flex md:hidden flex-col flex-1 overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {mobileTab==='player' && (
-            <div className="px-3 py-3">
-              <PlayerCard
-                compact={true}
-                player={player}
-                lotNum={lotNum}
-                total={total}
-                rc={rc}
-                sportIcon={sportIcon}
-                tab={tab}
-                setTab={setTab}
-                TABS={TABS}
-                statFields={statFields}
-                statsObj={statsObj}
-              />
-            </div>
-          )}
+          {mobileTab==='player' && <div className="px-3 py-3"><PlayerCard compact={true}/></div>}
 
           {mobileTab==='bid' && (
             <div className="px-4 py-4 flex flex-col gap-3">
@@ -596,13 +558,6 @@ export default function AuctionPage() {
 
         <div className="flex-shrink-0 flex relative z-20"
              style={{background:'rgba(7,7,14,0.98)',borderTop:'0.5px solid rgba(255,255,255,0.09)'}}>
-          <button onClick={()=>setMobileTab('player')}
-                  className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 relative transition-colors"
-                  style={{color:mobileTab==='player'?'#F2A623':'#555'}}>
-            <span className="text-lg leading-none">{sportIcon}</span>
-            <span className="text-[10px] font-semibold">Player</span>
-            {mobileTab==='player' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-gold"/>}
-          </button>
           <button onClick={()=>setMobileTab('bid')}
                   className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 relative transition-colors"
                   style={{color:mobileTab==='bid'?'#F2A623':'#555'}}>
@@ -614,6 +569,13 @@ export default function AuctionPage() {
             </span>
             <span className="text-[10px] font-semibold">Bid</span>
             {mobileTab==='bid' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-gold"/>}
+          </button>
+          <button onClick={()=>setMobileTab('player')}
+                  className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 relative transition-colors"
+                  style={{color:mobileTab==='player'?'#F2A623':'#555'}}>
+            <span className="text-lg leading-none">{sportIcon}</span>
+            <span className="text-[10px] font-semibold">Player</span>
+            {mobileTab==='player' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-gold"/>}
           </button>
           <button onClick={()=>setMobileTab('teams')}
                   className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 relative transition-colors"

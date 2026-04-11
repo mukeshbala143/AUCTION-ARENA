@@ -8,6 +8,7 @@ const fmt = (l) => l >= 100 ? `₹${(l/100).toFixed(2).replace(/\.?0+$/, '')} Cr
 const ROLES = ['all', 'batsman', 'allrounder', 'bowler', 'wicketkeeper']
 const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'}}
 const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D']
+const MAX_UNSOLD_SELECTIONS = 5
 
 function getSafePlayerImage(url) {
   if (!url || typeof url !== 'string') return null
@@ -51,6 +52,7 @@ export default function UnsoldPage() {
   const [doneTeams, setDoneTeams] = useState([]) 
   const [loading, setLoading] = useState(false)
   const [expandedTeam, setExpandedTeam] = useState(null)
+  const [selectionError, setSelectionError] = useState('')
 
   useEffect(() => {
     loadData()
@@ -112,7 +114,7 @@ export default function UnsoldPage() {
     if (my) {
       const { data: mySelections } = await supabase.from('unsold_selections')
         .select('lot_id').eq('team_id', my.id)
-      setSelected((mySelections || []).map(s => s.lot_id))
+      setSelected((mySelections || []).map(s => s.lot_id).slice(0, MAX_UNSOLD_SELECTIONS))
       const alreadyDone = (doneData || []).find(t => t.id === my.id)
       if (alreadyDone) setIsDone(true)
     }
@@ -122,6 +124,7 @@ export default function UnsoldPage() {
     if (isDone || !myTeam || mySquadFull || myPurseEmpty) return
     const isSelected = selected.includes(lotId)
     if (isSelected) {
+      setSelectionError('')
       setSelected(prev => prev.filter(id => id !== lotId))
       const { error } = await supabase.from('unsold_selections')
         .delete().eq('team_id', myTeam.id).eq('lot_id', lotId)
@@ -130,6 +133,11 @@ export default function UnsoldPage() {
         setSelected(prev => [...prev, lotId]) // Revert UI on failure
       }
     } else {
+      if (selected.length >= MAX_UNSOLD_SELECTIONS) {
+        setSelectionError(`Each team can select only ${MAX_UNSOLD_SELECTIONS} unsold players for re-auction.`)
+        return
+      }
+      setSelectionError('')
       setSelected(prev => [...prev, lotId])
       const { error } = await supabase.from('unsold_selections')
         .upsert({ room_id: room.id, team_id: myTeam.id, lot_id: lotId })
@@ -181,18 +189,25 @@ export default function UnsoldPage() {
   const mySquadFull = myTeam && myTeam.squad_count >= squadLimit
   const myPurseEmpty = myTeam && myTeam.purse_remaining_lakhs <= 0
 
-  const filteredList = unsoldList.filter(l => {
-    const matchesRole =
-      roleFilter === 'all'
-        ? true
-        : roleFilter === 'uncapped'
-          ? !l.player?.is_capped
-          : l.player?.role === roleFilter
+  const filteredList = unsoldList
+    .filter(l => {
+      const matchesRole =
+        roleFilter === 'all'
+          ? true
+          : roleFilter === 'uncapped'
+            ? !l.player?.is_capped
+            : l.player?.role === roleFilter
 
-    const matchesSearch = l.player?.name?.toLowerCase().includes(searchTerm.trim().toLowerCase())
+      const matchesSearch = l.player?.name?.toLowerCase().includes(searchTerm.trim().toLowerCase())
 
-    return matchesRole && matchesSearch
-  })
+      return matchesRole && matchesSearch
+    })
+    .sort((a, b) => {
+      const aIsSelected = selected.includes(a.id)
+      const bIsSelected = selected.includes(b.id)
+      if (aIsSelected !== bIsSelected) return aIsSelected ? -1 : 1
+      return (a.lot_number || 0) - (b.lot_number || 0)
+    })
 
   const allTeamsDone = teams.length > 0 && teams.every(t => doneTeams.includes(t.id))
 
@@ -282,6 +297,21 @@ export default function UnsoldPage() {
           {/* Role filter tabs */}
           <div className="flex flex-col gap-3 px-4 py-3 flex-shrink-0"
                style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
+            <div
+              className="rounded-2xl px-4 py-3 flex items-center justify-between gap-3"
+              style={{background:'rgba(216,90,48,0.14)',border:'1px solid rgba(240,112,80,0.45)',boxShadow:'0 0 0 1px rgba(240,112,80,0.08), 0 12px 28px rgba(216,90,48,0.12)'}}
+            >
+              <div>
+                <div className="text-[11px] tracking-[2px] uppercase font-bold" style={{color:'#ffb19e'}}>Important Restriction</div>
+                <div className="text-sm font-semibold mt-1" style={{color:'#ffd7cd'}}>
+                  Each team can select only {MAX_UNSOLD_SELECTIONS} unsold players for re-auction.
+                </div>
+              </div>
+              <div className="px-3 py-2 rounded-xl text-lg font-bold shrink-0" style={{background:'rgba(255,255,255,0.08)',color:'#fff',border:'1px solid rgba(255,255,255,0.08)'}}>
+                {selected.length}/{MAX_UNSOLD_SELECTIONS}
+              </div>
+            </div>
+
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted">🔍</span>
@@ -303,7 +333,7 @@ export default function UnsoldPage() {
                 )}
               </div>
               <span className="text-[10px] sm:text-xs text-gold font-bold px-2 py-1 rounded bg-gold/10 whitespace-nowrap shrink-0 hidden sm:block">
-                {selected.length} Selected
+                {selected.length}/{MAX_UNSOLD_SELECTIONS} Selected
               </span>
             </div>
 
@@ -330,7 +360,7 @@ export default function UnsoldPage() {
                 {/* Badge Left, Text Right */}
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-[11px] text-gold font-bold px-3 py-1.5 rounded-lg bg-gold/10 whitespace-nowrap shrink-0 border border-gold/20">
-                    {selected.length} Selected
+                    {selected.length}/{MAX_UNSOLD_SELECTIONS} Selected
                   </span>
                   <span className="text-[10px] text-muted text-right leading-tight">
                     {mySquadFull ? 'Squad full — Please submit.' : myPurseEmpty ? 'Purse empty — Please submit.' : `You have selected ${selected.length} players to bring back.`}
@@ -434,6 +464,14 @@ export default function UnsoldPage() {
                 <span className="text-xs text-muted flex-1 text-left">
                   {mySquadFull ? 'Squad full — Please submit your status.' : myPurseEmpty ? 'Purse empty — Please submit your status.' : `You have selected ${selected.length} players to bring back.`}
                 </span>
+                <span className="text-xs font-semibold" style={{color:'#F07050'}}>
+                  Max {MAX_UNSOLD_SELECTIONS} players per team
+                </span>
+                {!!selectionError && (
+                  <span className="text-xs font-semibold" style={{color:'#ff9d8b'}}>
+                    {selectionError}
+                  </span>
+                )}
                 <button onClick={handleDone} disabled={loading}
                         className="w-auto px-6 py-2.5 rounded-xl font-bold text-sm tracking-widest uppercase transition-all disabled:opacity-50 shadow-lg hover:brightness-110"
                         style={{background:'linear-gradient(135deg,#F2A623,#BA7517)',color:'#13131f'}}>

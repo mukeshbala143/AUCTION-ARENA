@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, signOut } from '../lib/supabase'
 import { useStore } from '../store'
+import AppFooter from '../components/AppFooter'
 
 const SPORTS = [
   { id:'ipl', icon:'🏏', name:'IPL Cricket', full:'Indian Premier League', isComingSoon:false, color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.35)', stats:[['350','Players'],['₹120Cr','Purse'],['8','Overseas']] },
@@ -467,19 +468,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* FOOTER */}
-      <footer className="relative z-10 px-4 sm:px-6 md:px-10 py-5 sm:py-6 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 mt-4 bg-black/20">
-        <span className="font-bebas text-lg sm:text-xl tracking-[3px] sm:tracking-[4px] text-gold">AUCTION ARENA</span>
-        <div className="text-center">
-          <span className="block text-muted text-xs">© 2026 Auction Arena · All rights reserved</span>
-          <span className="block text-muted text-[11px] mt-1">Developed by Subrata Bala & Mukesh Bala</span>
-        </div>
-        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
-          <button onClick={() => setActiveModal('privacy')} className="text-muted text-xs hover:text-gold transition-colors">Privacy</button>
-          <button onClick={() => setActiveModal('terms')} className="text-muted text-xs hover:text-gold transition-colors">Terms</button>
-          <button onClick={() => setActiveModal('contact')} className="text-muted text-xs hover:text-gold transition-colors">Contact</button>
-        </div>
-      </footer>
+      <AppFooter />
 
       {/* POPUP MODALS */}
       {activeModal && (

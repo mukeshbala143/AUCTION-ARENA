@@ -80,6 +80,14 @@ export default function SquadsPage() {
         <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
         <div className="flex gap-2">
           <button
+            onClick={() => goTo('/dashboard', 'dashboard')}
+            disabled={busyAction !== ''}
+            className="btn-outline text-xs"
+            style={{padding:'0.5rem 1rem', opacity: busyAction !== '' && busyAction !== 'dashboard' ? 0.6 : 1}}
+          >
+            {busyAction === 'dashboard' ? '⏳ Opening…' : '← Dashboard'}
+          </button>
+          <button
             onClick={() => goTo(`/export/${code}`, 'export')}
             disabled={busyAction !== ''}
             className="btn-outline text-xs"
