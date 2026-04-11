@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { getAccessToken, supabase } from '../lib/supabase'
 import { getSocket } from '../lib/socket'
 import { useStore } from '../store'
 
@@ -58,7 +58,11 @@ export default function UnsoldPage() {
     loadData()
     const socket = getSocket()
 
-    const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
+    const joinRoom = async () => {
+      const token = await getAccessToken()
+      if (!token) return
+      socket.emit('room:join', { roomCode: code, userId: user?.id, token })
+    }
     joinRoom()
     socket.on('connect', joinRoom)
 
@@ -155,9 +159,14 @@ export default function UnsoldPage() {
   const handleDone = async () => {
     if (!myTeam || isDone) return
     setLoading(true)
+    const token = await getAccessToken()
+    if (!token) {
+      setLoading(false)
+      return
+    }
     await supabase.from('room_teams')
       .update({ unsold_ready: true }).eq('id', myTeam.id)
-    getSocket().emit('unsold:team_done', { roomCode: code, teamId: myTeam.id })
+    getSocket().emit('unsold:team_done', { roomCode: code, teamId: myTeam.id, token })
     setIsDone(true)
     setLoading(false)
   }
@@ -165,6 +174,11 @@ export default function UnsoldPage() {
   const handleStartAuction = async () => {
     if (!room) return
     setLoading(true)
+    const token = await getAccessToken()
+    if (!token) {
+      setLoading(false)
+      return
+    }
 
     const { data: selections } = await supabase.from('unsold_selections')
       .select('lot_id').eq('room_id', room.id)
@@ -184,7 +198,7 @@ export default function UnsoldPage() {
     await supabase.from('room_teams')
       .update({ unsold_ready: false }).eq('room_id', room.id)
 
-    getSocket().emit('unsold:start_auction', { roomCode: code, userId: user?.id, lotIds: selectedLotIds })
+    getSocket().emit('unsold:start_auction', { roomCode: code, userId: user?.id, lotIds: selectedLotIds, token })
     setLoading(false)
   }
 

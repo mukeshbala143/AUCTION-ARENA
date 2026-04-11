@@ -80,14 +80,6 @@ export default function SquadsPage() {
         <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
         <div className="flex gap-2">
           <button
-            onClick={() => goTo('/dashboard', 'dashboard')}
-            disabled={busyAction !== ''}
-            className="btn-outline text-xs"
-            style={{padding:'0.5rem 1rem', opacity: busyAction !== '' && busyAction !== 'dashboard' ? 0.6 : 1}}
-          >
-            {busyAction === 'dashboard' ? '⏳ Opening…' : '← Dashboard'}
-          </button>
-          <button
             onClick={() => goTo(`/export/${code}`, 'export')}
             disabled={busyAction !== ''}
             className="btn-outline text-xs"
@@ -107,6 +99,11 @@ export default function SquadsPage() {
       </nav>
 
       <div className="relative z-10 max-w-7xl mx-auto px-8 pt-24 pb-12">
+        {/* BACK BUTTON */}
+        <Link to="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-muted hover:text-gold transition-colors mb-6 anim-1">
+          <span className="text-lg leading-none">←</span> Back to Dashboard
+        </Link>
+
         {/* COMPLETED BANNER */}
         <div className="flex items-center gap-4 p-5 rounded-2xl mb-8 anim-1" style={{background:'rgba(76,175,125,0.08)',border:'0.5px solid rgba(76,175,125,0.25)'}}>
           <span className="text-3xl">✅</span>

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store'
 import { API_BASE_URL } from '../lib/config'
+import { getAccessToken } from '../lib/supabase'
 
 export default function JoinRoomPage() {
   const [params] = useSearchParams()
@@ -48,9 +49,10 @@ export default function JoinRoomPage() {
     if (!room || !user) return
     setLoading(true)
     try {
+      const token = await getAccessToken()
       const res = await fetch(`${API_BASE_URL}/api/rooms/${room.code}/join`,{
         method:'POST', 
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json', Authorization: `Bearer ${token}`},
         body: JSON.stringify({ userId: user.id })
       })
       if (res.ok) {

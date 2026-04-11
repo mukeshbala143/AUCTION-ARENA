@@ -1,12 +1,14 @@
 const express = require('express')
 
-module.exports = (supabase) => {
+module.exports = (supabase, requireHttpUser) => {
   const router = express.Router()
 
   // POST /api/rooms — Create room
   router.post('/', async (req, res) => {
     try {
-      const { sport, adminId, teamName, settings } = req.body
+      const user = await requireHttpUser(req, res)
+      if (!user) return
+      const { sport, teamName, settings } = req.body
       const code = Math.random().toString(36).substring(2, 8).toUpperCase()
 
       const { data: room, error } = await supabase
@@ -14,7 +16,7 @@ module.exports = (supabase) => {
         .insert({
           code,
           sport,
-          admin_id: adminId,
+          admin_id: user.id,
           squad_limit: settings?.squadLimit || 25,
           purse_lakhs: settings?.purseLakhs || 12000,
           max_overseas: settings?.maxOverseas || 8,
@@ -27,7 +29,7 @@ module.exports = (supabase) => {
 
       await supabase.from('room_teams').insert({
         room_id: room.id,
-        user_id: adminId,
+        user_id: user.id,
         team_name: teamName,
         purse_remaining_lakhs: settings?.purseLakhs || 12000,
       })
@@ -51,21 +53,22 @@ module.exports = (supabase) => {
   // POST /api/rooms/:code/join
   router.post('/:code/join', async (req, res) => {
     try {
-      const { userId } = req.body
+      const user = await requireHttpUser(req, res)
+      if (!user) return
       const { data: room } = await supabase.from('rooms').select('*').eq('code', req.params.code.toUpperCase()).single()
       if (!room) return res.status(404).json({ error: 'Room not found' })
       if (room.status !== 'waiting') return res.status(400).json({ error: 'Auction already started' })
 
-      const { data: existing } = await supabase.from('room_teams').select('id').eq('room_id', room.id).eq('user_id', userId).single()
+      const { data: existing } = await supabase.from('room_teams').select('id').eq('room_id', room.id).eq('user_id', user.id).single()
       if (existing) return res.json({ message: 'Already in room' })
 
       const { count } = await supabase.from('room_teams').select('id', { count: 'exact' }).eq('room_id', room.id)
       if (count >= 10) return res.status(400).json({ error: 'Room full (max 10 teams)' })
 
-      const { data: profile } = await supabase.from('users').select('*').eq('id', userId).single()
+      const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
       const { data: team, error: err } = await supabase.from('room_teams').insert({
         room_id: room.id,
-        user_id: userId,
+        user_id: user.id,
         team_name: profile?.team_name || 'Team',
         purse_remaining_lakhs: room.purse_lakhs,
         is_ready: false

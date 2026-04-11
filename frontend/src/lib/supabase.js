@@ -26,6 +26,12 @@ export const signInWithGoogle = () =>
 
 export const signOut = () => supabase.auth.signOut()
 
+export async function getAccessToken() {
+  const { data: { session }, error } = await supabase.auth.getSession()
+  if (error) throw error
+  return session?.access_token || null
+}
+
 async function withTimeout(promise, ms, fallbackValue) {
   let timeoutId
 

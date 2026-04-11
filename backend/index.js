@@ -42,6 +42,42 @@ const io     = new Server(server, {
   cors: corsOptions
 })
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+
+async function getUserFromAccessToken(token) {
+  const accessToken = String(token || '').trim()
+  if (!accessToken) return null
+  const { data, error } = await supabase.auth.getUser(accessToken)
+  if (error) {
+    console.warn('[auth] token verification failed:', error.message)
+    return null
+  }
+  return data?.user || null
+}
+
+async function requireHttpUser(req, res) {
+  const authHeader = req.headers.authorization || ''
+  const [, token = ''] = authHeader.match(/^Bearer\s+(.+)$/i) || []
+  const user = await getUserFromAccessToken(token)
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return null
+  }
+  req.user = user
+  return user
+}
+
+async function requireSocketUser(token, claimedUserId) {
+  const user = await getUserFromAccessToken(token)
+  if (!user) return null
+  if (claimedUserId && user.id !== claimedUserId) return null
+  return user
+}
+
+async function requireOwnedTeam(teamId, userId) {
+  const { data: team } = await supabase.from('room_teams').select('*').eq('id', teamId).single()
+  if (!team || team.user_id !== userId) return null
+  return team
+}
 app.use(cors(corsOptions))
 app.use(express.json())
 
@@ -57,7 +93,7 @@ app.get('/', (_req, res) => {
 
 app.get('/ping', (_req, res) => res.json({ ok: true, ts: Date.now() }))
 
-app.use('/api/rooms',    require('./src/routes/rooms')(supabase))
+app.use('/api/rooms',    require('./src/routes/rooms')(supabase, requireHttpUser))
 app.use('/api/analysis', require('./src/routes/analysis')(supabase))
 
 // GET /api/stats - Public stats endpoint
@@ -80,14 +116,99 @@ const roomStates = {}
 function getState(code) {
   if (!roomStates[code]) roomStates[code] = {
     timer: null,
+    timerId: null,
     timerValue: 15,
+    timerStartedAt: null,
     currentBid: { amount: 0, teamId: null, teamName: null },
     lotQueue: [], lotIdx: -1, skips: {}, teamCount: 0, phase: 'main',
     totalPlayers: 0,   
     soldCount: 0,      
     unsoldCount: 0,    
+    selling: false,
+    timerRunning: false,
+    paused: false,
+    lastBidder: null,
   }
   return roomStates[code]
+}
+
+function getRemainingSeconds(startedAt, durationSeconds = 15) {
+  const startMs = new Date(startedAt || 0).getTime()
+  if (!Number.isFinite(startMs) || startMs <= 0) return durationSeconds
+  const elapsed = Math.floor((Date.now() - startMs) / 1000)
+  return Math.max(0, durationSeconds - elapsed)
+}
+
+async function hydrateAuctionState(roomCode, room) {
+  const state = getState(roomCode)
+  const { data: lots } = await supabase.from('auction_lots')
+    .select('*, player:players(*)')
+    .eq('room_id', room.id)
+    .order('lot_number')
+
+  if (!lots || lots.length === 0) return { state, activeLot: null, nextPendingLot: null }
+
+  state.lotQueue = lots
+  state.totalPlayers = lots.length
+
+  const [{ count: soldCount }, { count: unsoldCount }, { count: teamCount }] = await Promise.all([
+    supabase.from('auction_lots').select('id', { count: 'exact', head: true }).eq('room_id', room.id).eq('status', 'sold'),
+    supabase.from('auction_lots').select('id', { count: 'exact', head: true }).eq('room_id', room.id).eq('status', 'unsold'),
+    supabase.from('room_teams').select('id', { count: 'exact', head: true }).eq('room_id', room.id),
+  ])
+
+  state.soldCount = soldCount || 0
+  state.unsoldCount = unsoldCount || 0
+  state.teamCount = teamCount || 0
+
+  const activeLot = lots.find((l) => l.status === 'active') || null
+  const nextPendingLot = lots.find((l) => l.status === 'pending') || null
+  state.phase = lots.some((l) => l.is_unsold_round && (l.status === 'active' || l.status === 'pending'))
+    ? 'unsold_round'
+    : 'main'
+
+  console.log(
+    `[auction][hydrate] room=${roomCode} totalLots=${lots.length} activeLot=${activeLot?.lot_number || 'none'} pendingLot=${nextPendingLot?.lot_number || 'none'} sold=${state.soldCount} unsold=${state.unsoldCount} phase=${state.phase}`
+  )
+
+  if (activeLot) {
+    state.lotIdx = lots.findIndex((l) => l.id === activeLot.id)
+    const { data: bids } = await supabase.from('bids')
+      .select('amount_lakhs, team:room_teams(id, team_name)')
+      .eq('lot_id', activeLot.id)
+      .order('amount_lakhs', { ascending: false })
+      .limit(1)
+
+    if (bids && bids.length > 0 && bids[0].team) {
+      state.currentBid = {
+        amount: bids[0].amount_lakhs,
+        teamId: bids[0].team.id,
+        teamName: bids[0].team.team_name,
+      }
+    } else {
+      state.currentBid = {
+        amount: activeLot.base_price_lakhs,
+        teamId: null,
+        teamName: null,
+      }
+    }
+
+    state.timerValue = getRemainingSeconds(activeLot.started_at, 15)
+    state.timerStartedAt = activeLot.started_at || new Date().toISOString()
+    console.log(
+      `[auction][hydrate] resumed active lot room=${roomCode} lot=${activeLot.lot_number} bid=${state.currentBid.amount} remaining=${state.timerValue}s`
+    )
+  } else {
+    state.currentBid = { amount: 0, teamId: null, teamName: null }
+    state.timerValue = 15
+    state.timerStartedAt = null
+    state.lotIdx = nextPendingLot ? Math.max(0, lots.findIndex((l) => l.id === nextPendingLot.id) - 1) : -1
+    console.log(
+      `[auction][hydrate] no active lot room=${roomCode} nextPending=${nextPendingLot?.lot_number || 'none'}`
+    )
+  }
+
+  return { state, activeLot, nextPendingLot }
 }
 
 function fmtPrice(lakhs) {
@@ -98,7 +219,9 @@ function fmtPrice(lakhs) {
 io.on('connection', socket => {
   console.log('🔌 Socket connected:', socket.id)
 
-  socket.on('room:join', async ({ roomCode, userId }) => {
+  socket.on('room:join', async ({ roomCode, userId, token }) => {
+    const user = await requireSocketUser(token, userId)
+    if (!user) return
     socket.join(roomCode)
     const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
     if (!room) return
@@ -109,71 +232,41 @@ io.on('connection', socket => {
 
     // ✅ Rejoin: send current auction state if active
     if (room.status === 'active') {
-      const state = getState(roomCode)
+      console.log(`[rejoin] Hydrating active room state: ${roomCode}`)
+      const { state, activeLot, nextPendingLot } = await hydrateAuctionState(roomCode, room)
 
-      // If state is uninitialized (e.g. after a server restart), reconstruct it
-      if (state.lotQueue.length === 0 && state.lotIdx === -1) {
-        console.log(`[rejoin] Reconstructing state for active room: ${roomCode}`)
-        
-        // 1. Re-fetch all lots for the room
-        const { data: lots } = await supabase.from('auction_lots')
-          .select('*, player:players(*)')
-          .eq('room_id', room.id)
-          .order('lot_number')
-        
-        if (lots && lots.length > 0) {
-          state.lotQueue = lots
-          state.totalPlayers = lots.length
-
-          // 2. Find the current active player
-          const activeLotInDB = lots.find(l => l.status === 'active')
-          state.lotIdx = activeLotInDB ? lots.findIndex(l => l.id === activeLotInDB.id) : -1
-
-          // 3. Re-fetch counts
-          const { count: soldCount } = await supabase.from('auction_lots').select('id', { count: 'exact', head: true }).eq('room_id', room.id).eq('status', 'sold')
-          const { count: unsoldCount } = await supabase.from('auction_lots').select('id', { count: 'exact', head: true }).eq('room_id', room.id).eq('status', 'unsold')
-          state.soldCount = soldCount || 0
-          state.unsoldCount = unsoldCount || 0
-
-          // 4. Re-fetch team count
-          const { count: teamCount } = await supabase.from('room_teams').select('id', { count: 'exact', head: true }).eq('room_id', room.id)
-          state.teamCount = teamCount || 0
-
-          // 5. Reconstruct current bid for the active lot
-          if (activeLotInDB) {
-            const { data: bids } = await supabase.from('bids')
-              .select('amount_lakhs, team:room_teams(id, team_name)')
-              .eq('lot_id', activeLotInDB.id)
-              .order('amount_lakhs', { ascending: false })
-              .limit(1)
-            
-            if (bids && bids.length > 0 && bids[0].team) {
-              state.currentBid = { amount: bids[0].amount_lakhs, teamId: bids[0].team.id, teamName: bids[0].team.team_name }
-            } else {
-              state.currentBid = { amount: activeLotInDB.base_price_lakhs, teamId: null, teamName: null }
-            }
-          }
-        }
-      }
-
-      const lot = state.lotQueue[state.lotIdx]
-      if (lot) {
+      if (activeLot) {
+        const lot = state.lotQueue[state.lotIdx]
         socket.emit('auction:player_up', { player: lot.player, lot, lotNumber: lot.lot_number, totalLots: state.totalPlayers, basePriceLakhs: lot.base_price_lakhs, soldCount: state.soldCount, unsoldCount: state.unsoldCount })
         socket.emit('auction:bid', { teamId: state.currentBid.teamId, teamName: state.currentBid.teamName, amountLakhs: state.currentBid.amount, timestamp: Date.now() })
         socket.emit('auction:timer', { seconds: state.timerValue })
+
+        if (!state.paused && !state.timerId && !state.selling) {
+          startTimer(roomCode, lot, { seconds: state.timerValue, persistStartedAt: false })
+        }
+      } else if (nextPendingLot && !state.selling) {
+        console.log(`[rejoin] No active lot found for ${roomCode}; resuming from next pending lot`)
+        clearTimeout(state.timer)
+        state.timer = null
+        state.timerId = null
+        await advanceLot(roomCode, room)
       }
     }
   })
 
-  socket.on('room:ready', async ({ roomCode, teamId, isReady }) => {
+  socket.on('room:ready', async ({ roomCode, teamId, isReady, token }) => {
+    const user = await requireSocketUser(token)
+    const team = user ? await requireOwnedTeam(teamId, user.id) : null
+    if (!team) return
     await supabase.from('room_teams').update({ is_ready: isReady }).eq('id', teamId)
     io.to(roomCode).emit('lobby:ready', { teamId, isReady })
   })
 
-  socket.on('admin:start', async ({ roomCode, userId }) => {
+  socket.on('admin:start', async ({ roomCode, userId, token }) => {
+    const user = await requireSocketUser(token, userId)
     const { data: room } = await supabase.from('rooms')
       .select('*, room_teams(*)').eq('code', roomCode).single()
-    if (!room || room.admin_id !== userId) return
+    if (!room || !user || room.admin_id !== user.id) return
 
     // ✅ Full state reset on every start
     roomStates[roomCode] = {
@@ -233,7 +326,9 @@ io.on('connection', socket => {
   })
 
   // ✅ UPDATED LOGIC: Instant sell if others already skipped
-  socket.on('bid:place', async ({ roomCode, lotId, teamId, amountLakhs }) => {
+  socket.on('bid:place', async ({ roomCode, lotId, teamId, amountLakhs, token }) => {
+    const user = await requireSocketUser(token)
+    if (!user) return
     const state = getState(roomCode)
     const lot = state.lotQueue[state.lotIdx]
     if (!lot || lot.id !== lotId) return
@@ -241,7 +336,7 @@ io.on('connection', socket => {
     if (state.lastBidder === teamId) return
     state.lastBidder = teamId
 
-    const { data: team } = await supabase.from('room_teams').select('*').eq('id', teamId).single()
+    const team = await requireOwnedTeam(teamId, user.id)
     if (!team || team.purse_remaining_lakhs < amountLakhs) return
 
     const { data: room } = await supabase.from('rooms').select('max_overseas,squad_limit').eq('code', roomCode).single()
@@ -274,7 +369,10 @@ io.on('connection', socket => {
   })
 
   // ✅ UPDATED LOGIC: Check for active bid before requiring full skips
-  socket.on('bid:skip', async ({ roomCode, lotId, teamId }) => {
+  socket.on('bid:skip', async ({ roomCode, lotId, teamId, token }) => {
+    const user = await requireSocketUser(token)
+    const team = user ? await requireOwnedTeam(teamId, user.id) : null
+    if (!team) return
     const state = getState(roomCode)
     if (!state.skips[lotId]) state.skips[lotId] = new Set()
     state.skips[lotId].add(teamId)
@@ -296,18 +394,20 @@ io.on('connection', socket => {
     }
   })
 
-  socket.on('auction:pause', async ({ roomCode, userId }) => {
+  socket.on('auction:pause', async ({ roomCode, userId, token }) => {
+    const user = await requireSocketUser(token, userId)
     const { data: room } = await supabase.from('rooms').select('admin_id').eq('code', roomCode).single()
-    if (!room || room.admin_id !== userId) return
+    if (!room || !user || room.admin_id !== user.id) return
     const state = getState(roomCode)
     clearTimeout(state.timer)
     state.paused = true
     io.to(roomCode).emit('auction:paused')
   })
 
-  socket.on('auction:resume', async ({ roomCode, userId }) => {
+  socket.on('auction:resume', async ({ roomCode, userId, token }) => {
+    const user = await requireSocketUser(token, userId)
     const { data: room } = await supabase.from('rooms').select('admin_id').eq('code', roomCode).single()
-    if (!room || room.admin_id !== userId) return
+    if (!room || !user || room.admin_id !== user.id) return
     const state = getState(roomCode)
     state.paused = false
     io.to(roomCode).emit('auction:resumed')
@@ -315,9 +415,10 @@ io.on('connection', socket => {
     if (lot) startTimer(roomCode, lot)
   })
 
-  socket.on('admin:end_main', async ({ roomCode, userId }) => {
+  socket.on('admin:end_main', async ({ roomCode, userId, token }) => {
+    const user = await requireSocketUser(token, userId)
     const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
-    if (!room || room.admin_id !== userId) return
+    if (!room || !user || room.admin_id !== user.id) return
     const state = getState(roomCode)
     clearTimeout(state.timer)
     state.timerId = null
@@ -336,13 +437,17 @@ io.on('connection', socket => {
     })
   })
 
-  socket.on('unsold:team_done', ({ roomCode, teamId }) => {
+  socket.on('unsold:team_done', async ({ roomCode, teamId, token }) => {
+    const user = await requireSocketUser(token)
+    const team = user ? await requireOwnedTeam(teamId, user.id) : null
+    if (!team) return
     io.to(roomCode).emit('unsold:team_done', { teamId })
   })
 
-  socket.on('unsold:start_auction', async ({ roomCode, userId, lotIds }) => {
+  socket.on('unsold:start_auction', async ({ roomCode, userId, lotIds, token }) => {
+    const user = await requireSocketUser(token, userId)
     const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
-    if (!room || room.admin_id !== userId) return
+    if (!room || !user || room.admin_id !== user.id) return
     const { data: selectedLots } = await supabase.from('auction_lots')
       .select('*, player:players(*)').eq('room_id', room.id)
       .in('id', lotIds).order('lot_number')
@@ -362,17 +467,32 @@ io.on('connection', socket => {
     await advanceLot(roomCode, room)
   })
 
-  socket.on('disconnect', () => console.log('🔌 Socket disconnected:', socket.id))
+  socket.on('disconnect', (reason) => console.log('🔌 Socket disconnected:', socket.id, 'reason:', reason))
 })
 
 // ── Timer ────────────────────────────────────────────────────────────────
-function startTimer(roomCode, lot) {
+function startTimer(roomCode, lot, options = {}) {
   const state = getState(roomCode)
   clearTimeout(state.timer)
   const timerId = Date.now()
   state.timerId = timerId
   state.selling = false
-  state.timerValue = 15
+  state.timerValue = Math.max(0, Number.isFinite(options.seconds) ? options.seconds : 15)
+  state.timerStartedAt = new Date(Date.now() - Math.max(0, 15 - state.timerValue) * 1000).toISOString()
+
+  console.log(
+    `[auction][timer:start] room=${roomCode} lot=${lot?.lot_number || 'unknown'} seconds=${state.timerValue} persist=${options.persistStartedAt !== false}`
+  )
+
+  if (options.persistStartedAt !== false && lot?.id) {
+    lot.started_at = state.timerStartedAt
+    supabase.from('auction_lots')
+      .update({ started_at: state.timerStartedAt })
+      .eq('id', lot.id)
+      .then(({ error }) => {
+        if (error) console.error('Failed to persist timer start:', error.message)
+      })
+  }
 
   const tick = async () => {
     const state = getState(roomCode)
@@ -382,6 +502,9 @@ function startTimer(roomCode, lot) {
     io.to(roomCode).emit('auction:timer', { seconds: state.timerValue })
 
     if (state.timerValue <= 0) {
+      console.log(
+        `[auction][timer:end] room=${roomCode} lot=${lot?.lot_number || 'unknown'} outcome=${state.currentBid.teamId ? 'sell' : 'unsold'}`
+      )
       if (state.timerId !== timerId) return
       if (state.currentBid.teamId) await sellPlayer(roomCode, lot)
       else await markUnsold(roomCode)
@@ -391,6 +514,7 @@ function startTimer(roomCode, lot) {
     state.timer = setTimeout(tick, 1000)
   }
 
+  state.timer = null
   tick()
 }
 
@@ -400,6 +524,10 @@ async function sellPlayer(roomCode, lot) {
   if (state.selling) return
   state.selling = true
   const { amount, teamId } = state.currentBid
+
+  console.log(
+    `[auction][sell] room=${roomCode} lot=${lot?.lot_number || 'unknown'} team=${teamId || 'none'} amount=${amount}`
+  )
 
   await supabase.from('auction_lots').update({
     status: 'sold', final_price_lakhs: amount,
@@ -445,6 +573,8 @@ async function markUnsold(roomCode) {
   state.selling = true
   const lot = state.lotQueue[state.lotIdx]
   if (!lot) return
+
+  console.log(`[auction][unsold] room=${roomCode} lot=${lot.lot_number}`)
 
   await supabase.from('auction_lots').update({ status: 'unsold' }).eq('id', lot.id)
 
@@ -520,6 +650,9 @@ async function advanceLot(roomCode, room) {
   }
 
   const lot = state.lotQueue[state.lotIdx]
+  console.log(
+    `[auction][advance] room=${roomCode} phase=${state.phase} lot=${lot?.lot_number || 'none'} idx=${state.lotIdx} total=${state.lotQueue.length}`
+  )
   await supabase.from('auction_lots').update({
     status: 'active', started_at: new Date().toISOString()
   }).eq('id', lot.id)

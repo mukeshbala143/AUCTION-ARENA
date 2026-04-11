@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom' 
-import { supabase } from '../lib/supabase'
+import { getAccessToken, supabase } from '../lib/supabase'
 import { getSocket } from '../lib/socket'
 import { useStore } from '../store'
 
@@ -25,7 +25,11 @@ export default function LobbyPage() {
     loadRoom()
     const socket = getSocket()
 
-    const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
+    const joinRoom = async () => {
+      const token = await getAccessToken()
+      if (!token) return
+      socket.emit('room:join', { roomCode: code, userId: user?.id, token })
+    }
     joinRoom()
     socket.on('connect', joinRoom)
 
@@ -58,12 +62,16 @@ export default function LobbyPage() {
     const my = teams.find(t=>t.user_id===user?.id)
     if (!my) return
     const newReady = !my.is_ready
+    const token = await getAccessToken()
+    if (!token) return
     await supabase.from('room_teams').update({is_ready:newReady}).eq('id',my.id)
-    getSocket().emit('room:ready', { roomCode: code, teamId: my.id, isReady: newReady })
+    getSocket().emit('room:ready', { roomCode: code, teamId: my.id, isReady: newReady, token })
   }
 
-  const startAuction = () => {
-    getSocket().emit('admin:start', { roomCode: code, userId: user?.id })
+  const startAuction = async () => {
+    const token = await getAccessToken()
+    if (!token) return
+    getSocket().emit('admin:start', { roomCode: code, userId: user?.id, token })
     addLog('🚀 Admin started the auction!')
   }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { getAccessToken, supabase } from '../lib/supabase'
 import { getSocket } from '../lib/socket'
 import { useStore } from '../store'
 import { setMuted, primeAnnouncements, announcePlayer, announceBid, announceMyBid, announceSkip, announceSold, announceUnsold, announcePhase, stopAnnouncements } from '../lib/voice'
@@ -62,7 +62,7 @@ export default function AuctionPage() {
   const [skipCount, setSkipCount] = useState(0)
   const [paused, setPaused] = useState(false)
   const [showEndConfirm, setShowEndConfirm] = useState(false)
-  const [mobileTab, setMobileTab] = useState('player') 
+  const [mobileTab, setMobileTab] = useState('bid') 
   const [expandedTeam, setExpandedTeam] = useState(null) 
   const currentPlayerRef = useRef(null)
   const currentLotNumRef = useRef(0)
@@ -86,7 +86,11 @@ export default function AuctionPage() {
     primeAnnouncements()
     const socket = getSocket()
     
-    const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
+    const joinRoom = async () => {
+      const token = await getAccessToken()
+      if (!token) return
+      socket.emit('room:join', { roomCode: code, userId: user?.id, token })
+    }
     joinRoom()
     socket.on('connect', joinRoom)
 
@@ -97,7 +101,7 @@ export default function AuctionPage() {
       setBid({ amount:basePriceLakhs, teamId:null })
       setLeader(null); setHistory([]); setTimer(15); setSoldOverlay(null)
       setSkipped(false); setSkipCount(0)
-      setMobileTab('player') 
+      setMobileTab('bid') 
       announcePlayer(p, lotNumber, totalLots)
     })
     
@@ -202,20 +206,24 @@ export default function AuctionPage() {
     if (my) setMyTeam(my)
   }
 
-  const placeBid = (inc) => {
+  const placeBid = async (inc) => {
     if (!lot || !myTeam || paused) return
     primeAnnouncements()
     const newAmt = (bid?.amount||0) + inc
     if (myTeam.purse_remaining_lakhs < newAmt) return
+    const token = await getAccessToken()
+    if (!token) return
     setBid({ amount: newAmt, teamId: myTeam.id })
-    getSocket().emit('bid:place', { roomCode:code, lotId:lot.id, teamId:myTeam.id, amountLakhs:newAmt, userId:user?.id })
+    getSocket().emit('bid:place', { roomCode:code, lotId:lot.id, teamId:myTeam.id, amountLakhs:newAmt, userId:user?.id, token })
   }
   
-  const skipPlayer = () => {
+  const skipPlayer = async () => {
     if (!lot || !myTeam || paused) return
     primeAnnouncements()
+    const token = await getAccessToken()
+    if (!token) return
     setSkipped(true)
-    getSocket().emit('bid:skip', { roomCode:code, lotId:lot.id, teamId:myTeam.id })
+    getSocket().emit('bid:skip', { roomCode:code, lotId:lot.id, teamId:myTeam.id, token })
   }
   
   const toggleMute = () => {
@@ -225,11 +233,13 @@ export default function AuctionPage() {
     setMuted(m)
   }
   
-  const togglePause = () => {
+  const togglePause = async () => {
     primeAnnouncements()
+    const token = await getAccessToken()
+    if (!token) return
     const s = getSocket()
-    if (paused) s.emit('auction:resume', { roomCode:code, userId:user?.id })
-    else s.emit('auction:pause', { roomCode:code, userId:user?.id })
+    if (paused) s.emit('auction:resume', { roomCode:code, userId:user?.id, token })
+    else s.emit('auction:pause', { roomCode:code, userId:user?.id, token })
   }
 
   const rc = ROLE_COLORS[player?.role] || ROLE_COLORS.allrounder
@@ -638,7 +648,7 @@ export default function AuctionPage() {
             <p className="text-muted text-sm mb-6">Remaining players will be marked unsold, proceeding to the Unsold Round selection page.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={()=>setShowEndConfirm(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted" style={{background:"rgba(255,255,255,0.06)",border:"0.5px solid rgba(255,255,255,0.12)"}}>Cancel</button>
-              <button onClick={()=>{ setShowEndConfirm(false); getSocket().emit("admin:end_main", {roomCode:code, userId:user?.id}) }} className="px-6 py-2.5 rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#D85A30,#993C1D)",color:"#fff"}}>END AUCTION</button>
+              <button onClick={async ()=>{ const token = await getAccessToken(); if (!token) return; setShowEndConfirm(false); getSocket().emit("admin:end_main", {roomCode:code, userId:user?.id, token}) }} className="px-6 py-2.5 rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#D85A30,#993C1D)",color:"#fff"}}>END AUCTION</button>
             </div>
           </div>
         </div>
