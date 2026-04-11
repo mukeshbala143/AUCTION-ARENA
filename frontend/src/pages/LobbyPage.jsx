@@ -24,15 +24,24 @@ export default function LobbyPage() {
   useEffect(() => {
     loadRoom()
     const socket = getSocket()
-    socket.emit('room:join', { roomCode: code, userId: user?.id })
+
+    const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
+    joinRoom()
+    socket.on('connect', joinRoom)
+
     socket.on('lobby:teams', (newTeams) => { setTeams(newTeams); addLog(`🟢 A team joined or left the room`) })
     socket.on('lobby:ready', ({ teamId, isReady }) => {
       setTeams(p => p.map(t => t.id===teamId ? {...t, is_ready:isReady} : t))
       addLog(`✅ A team updated their ready status`)
     })
     socket.on('auction:started', () => navigate(`/auction/${code}`))
-    return () => { socket.off('lobby:teams'); socket.off('lobby:ready'); socket.off('auction:started') }
-  }, [code])
+    return () => {
+      socket.off('connect', joinRoom)
+      socket.off('lobby:teams')
+      socket.off('lobby:ready')
+      socket.off('auction:started')
+    }
+  }, [code, user])
 
   const loadRoom = async () => {
     const { data } = await supabase.from('rooms').select('*, room_teams(*, user:users(display_name,avatar_url))').eq('code', code).single()

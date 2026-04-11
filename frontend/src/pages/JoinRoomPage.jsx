@@ -54,7 +54,13 @@ export default function JoinRoomPage() {
         body: JSON.stringify({ userId: user.id })
       })
       if (res.ok) {
-        navigate(`/lobby/${room.code}`)
+        if (room.status === 'active') {
+          navigate(`/auction/${room.code}`);
+        } else if (room.status === 'unsold_selection') {
+          navigate(`/unsold/${room.code}`);
+        } else { // 'waiting'
+          navigate(`/lobby/${room.code}`);
+        }
       } else { 
         const d = await res.json()
         setError(d.error||'Failed to join')
@@ -164,12 +170,21 @@ export default function JoinRoomPage() {
                 ))}
               </div>
 
-              {room.status !== 'waiting'
-                ? <div className="text-center text-muted text-sm py-3">This auction has already started or finished.</div>
-                : <button onClick={joinRoom} disabled={loading} className="btn-gold w-full justify-center">
-                    {loading?'Joining…':'Join Room & Enter Lobby →'}
-                  </button>
-              }
+              {(() => {
+                if (room.status === 'finished') {
+                  return <div className="text-center text-muted text-sm py-3">This auction has finished. <Link to={`/squads/${code}`} className="text-gold">View Squads</Link></div>
+                }
+                if (room.status === 'waiting' || room.status === 'active' || room.status === 'unsold_selection') {
+                  const isWaiting = room.status === 'waiting';
+                  const isUnsoldSelect = room.status === 'unsold_selection';
+                  return (
+                    <button onClick={joinRoom} disabled={loading} className="btn-gold w-full justify-center">
+                      {loading ? 'Joining…' : isWaiting ? 'Join Room & Enter Lobby →' : isUnsoldSelect ? 'Enter Unsold Round →' : 'Rejoin Auction →'}
+                    </button>
+                  )
+                }
+                return <div className="text-center text-muted text-sm py-3">This room is in an unknown state.</div>
+              })()}
             </div>
           </div>
         )}

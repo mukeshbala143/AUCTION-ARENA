@@ -380,10 +380,17 @@ export default function DashboardPage() {
                     <span className="text-xs px-2 py-1 rounded font-bold tracking-widest uppercase" style={{background:sc.bg,color:sc.c}}>{sc.l}</span>
                   </div>
                   <div className="px-3 py-4">
-                    <Link to={room.status==='finished'?`/squads/${room.code}`:room.status==='active'||room.status==='unsold_round'?`/auction/${room.code}`:`/lobby/${room.code}`}
-                          className="text-xs text-gold font-bold no-underline hover:text-yellow-300 transition-colors whitespace-nowrap">
-                      {room.status==='finished'?'View Squads →':room.status==='active'||room.status==='unsold_round'?'Rejoin Auction →':'Rejoin →'}
-                    </Link>
+                    {(() => {
+                      let path = `/lobby/${room.code}`, text = 'Rejoin →';
+                      if (room.status === 'finished') { path = `/squads/${room.code}`; text = 'View Squads →'; }
+                      else if (room.status === 'active') { path = `/auction/${room.code}`; text = 'Rejoin Auction →'; }
+                      else if (room.status === 'unsold_selection') { path = `/unsold/${room.code}`; text = 'Select Unsold →'; }
+                      return (
+                        <Link to={path} className="text-xs text-gold font-bold no-underline hover:text-yellow-300 transition-colors whitespace-nowrap">
+                          {text}
+                        </Link>
+                      );
+                    })()}
                   </div>
                 </div>
               )
@@ -411,13 +418,17 @@ export default function DashboardPage() {
                     </div>
                     <span className="text-[10px] px-2 py-1 rounded font-bold tracking-widest uppercase shrink-0" style={{background:sc.bg,color:sc.c}}>{sc.l}</span>
                   </div>
-                  <Link
-                    to={room.status==='finished'?`/squads/${room.code}`:room.status==='active'||room.status==='unsold_round'?`/auction/${room.code}`:`/lobby/${room.code}`}
-                    className="block w-full text-center text-xs font-bold no-underline rounded-lg px-3 py-2 whitespace-nowrap"
-                    style={{background:'rgba(242,166,35,0.12)', border:'0.5px solid rgba(242,166,35,0.4)', color:'#F2A623'}}
-                  >
-                    {room.status==='finished'?'View Squads →':room.status==='active'||room.status==='unsold_round'?'Rejoin Auction →':'Rejoin →'}
-                  </Link>
+                  {(() => {
+                    let path = `/lobby/${room.code}`, text = 'Rejoin →';
+                    if (room.status === 'finished') { path = `/squads/${room.code}`; text = 'View Squads →'; }
+                    else if (room.status === 'active') { path = `/auction/${room.code}`; text = 'Rejoin Auction →'; }
+                    else if (room.status === 'unsold_selection') { path = `/unsold/${room.code}`; text = 'Select Unsold →'; }
+                    return (
+                      <Link to={path} className="block w-full text-center text-xs font-bold no-underline rounded-lg px-3 py-2 whitespace-nowrap" style={{background:'rgba(242,166,35,0.12)', border:'0.5px solid rgba(242,166,35,0.4)', color:'#F2A623'}}>
+                        {text}
+                      </Link>
+                    );
+                  })()}
                 </div>
               )
             })}

@@ -57,7 +57,10 @@ export default function UnsoldPage() {
   useEffect(() => {
     loadData()
     const socket = getSocket()
-    socket.emit('room:join', { roomCode: code, userId: user?.id })
+
+    const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
+    joinRoom()
+    socket.on('connect', joinRoom)
 
     socket.on('unsold:team_done', ({ teamId }) => {
       setDoneTeams(prev => [...new Set([...prev, teamId])])
@@ -68,10 +71,11 @@ export default function UnsoldPage() {
     })
 
     return () => {
+      socket.off('connect', joinRoom)
       socket.off('unsold:team_done')
       socket.off('unsold:start_auction')
     }
-  }, [code])
+  }, [code, user])
 
   const loadData = async () => {
     const { data: roomData } = await supabase.from('rooms')
