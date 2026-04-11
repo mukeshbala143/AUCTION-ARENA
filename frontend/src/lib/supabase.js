@@ -26,6 +26,20 @@ export const signInWithGoogle = () =>
 
 export const signOut = () => supabase.auth.signOut()
 
+async function withTimeout(promise, ms, fallbackValue) {
+  let timeoutId
+
+  const timeoutPromise = new Promise((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallbackValue), ms)
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 export async function getSessionWithProfile() {
   const { data: { session }, error } = await supabase.auth.getSession()
   if (error) throw error
@@ -34,15 +48,33 @@ export async function getSessionWithProfile() {
     return { session: null, profile: null }
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', session.user.id)
-    .maybeSingle()
+  const profile = await getProfileByUserId(session.user.id)
+  return { session, profile }
+}
 
-  if (profileError) throw profileError
+export async function getProfileByUserId(userId) {
+  if (!userId) return null
 
-  return { session, profile: profile || null }
+  try {
+    const profileResult = await withTimeout(
+      supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle(),
+      5000,
+      { data: null, error: null }
+    )
+
+    if (profileResult?.error) {
+      console.error('Profile fetch failed during session restore:', profileResult.error)
+    }
+
+    return profileResult?.data || null
+  } catch (profileError) {
+    console.error('Profile fetch crashed during session restore:', profileError)
+    return null
+  }
 }
 
 export async function exchangeCodeForSessionIfPresent() {

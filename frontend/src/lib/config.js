@@ -17,6 +17,10 @@ function getDefaultApiUrl() {
   return isLocal ? LOCAL_API_URL : PROD_API_URL
 }
 
-export const API_BASE_URL = normalizeUrl(
-  import.meta.env.VITE_SOCKET_URL || getDefaultApiUrl()
-)
+const configuredBaseUrl =
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_SOCKET_URL ||
+  getDefaultApiUrl()
+
+export const API_BASE_URL = normalizeUrl(configuredBaseUrl)
+export const SOCKET_BASE_URL = API_BASE_URL

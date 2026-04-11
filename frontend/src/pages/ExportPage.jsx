@@ -19,29 +19,43 @@ export default function ExportPage() {
   useEffect(() => { load() }, [code, user?.id])
 
   const load = async () => {
+    setLoading(true)
     setMySquad(null)
-    const { data: room } = await supabase.from('rooms').select('*').eq('code', code).single()
-    if (!room) return; setRoom(room); setSport(room.sport)
 
-    // Resolve the real logged-in user even if store hydration is late.
-    const { data: authData } = await supabase.auth.getUser()
-    const resolvedUserId = user?.id || authData?.user?.id || null
+    try {
+      const { data: room } = await supabase.from('rooms').select('*').eq('code', code).single()
+      if (!room) {
+        setRoom(null)
+        setSquads([])
+        return
+      }
 
-    const { data: teams } = await supabase
-      .from('room_teams')
-      .select('*, user:users(display_name,avatar_url)')
-      .eq('room_id', room.id)
-      .order('joined_at', { ascending: true })
-    const allSquads = await Promise.all((teams||[]).map(async t => {
-      const { data: picks } = await supabase.from('squad_picks').select('*, player:players(*)').eq('team_id', t.id).order('price_paid_lakhs',{ascending:false})
-      return { ...t, players: (picks||[]).map(p=>({...p.player, price_paid_lakhs:p.price_paid_lakhs})) }
-    }))
-    setSquads(allSquads)
+      setRoom(room)
+      setSport(room.sport)
 
-    // Strict: My Team = team row mapped to the currently logged-in user only.
-    const mine = resolvedUserId ? allSquads.find((s) => s.user_id === resolvedUserId) : null
-    setMySquad(mine || null)
-    setLoading(false)
+      // Resolve the real logged-in user even if store hydration is late.
+      const { data: authData } = await supabase.auth.getUser()
+      const resolvedUserId = user?.id || authData?.user?.id || null
+
+      const { data: teams } = await supabase
+        .from('room_teams')
+        .select('*, user:users(display_name,avatar_url)')
+        .eq('room_id', room.id)
+        .order('joined_at', { ascending: true })
+
+      const allSquads = await Promise.all((teams||[]).map(async t => {
+        const { data: picks } = await supabase.from('squad_picks').select('*, player:players(*)').eq('team_id', t.id).order('price_paid_lakhs',{ascending:false})
+        return { ...t, players: (picks||[]).map(p=>({...p.player, price_paid_lakhs:p.price_paid_lakhs})) }
+      }))
+
+      setSquads(allSquads)
+
+      // Strict: My Team = team row mapped to the currently logged-in user only.
+      const mine = resolvedUserId ? allSquads.find((s) => s.user_id === resolvedUserId) : null
+      setMySquad(mine || null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const dlAll = () => downloadAllSquads(squads, code)

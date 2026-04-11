@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getSocket } from '../lib/socket'
 import { useStore } from '../store'
-import { setMuted, announcePlayer, announceBid, announceSold, announceUnsold, announcePhase } from '../lib/voice'
+import { setMuted, primeAnnouncements, announcePlayer, announceBid, announceMyBid, announceSkip, announceSold, announceUnsold, announcePhase, stopAnnouncements } from '../lib/voice'
 
 const CIRC = 2 * Math.PI * 40
 
@@ -36,182 +36,17 @@ const FLAGS = {'India':'🇮🇳','Australia':'🇦🇺','England':'🏴󠁧󠁢
 const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'},raider:{c:'#F07050',bg:'rgba(216,90,48,0.12)',b:'rgba(216,90,48,0.25)'},defender:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},st:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},cm:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},cb:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},gk:{c:'#C99EF5',bg:'rgba(181,124,245,0.1)',b:'rgba(181,124,245,0.2)'}}
 const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D','#A8DADC','#F72585']
 
-export default function AuctionPage() {
-  const { code } = useParams()
-  const navigate = useNavigate()
-  const { user } = useStore()
-  const [room, setRoom] = useState(null)
-  const [teams, setTeams] = useState([])
-  const [myTeam, setMyTeam] = useState(null)
-  const [player, setPlayer] = useState(null)
-  const [lot, setLot] = useState(null)
-  const [lotNum, setLotNum] = useState(0)
-  const [total, setTotal] = useState(0)
-  const [soldCount, setSoldCount] = useState(0)
-  const [unsoldCount, setUnsoldCount] = useState(0)
-  const [bid, setBid] = useState(null)
-  const [leader, setLeader] = useState(null)
-  const [history, setHistory] = useState([])
-  const [timer, setTimer] = useState(15)
-  const [phase, setPhase] = useState('main')
-  const [tab, setTab] = useState('last_ipl')
-  const [muted, setMutedState] = useState(false)
-  const [soldOverlay, setSoldOverlay] = useState(null)
-  const [flash, setFlash] = useState(false)
-  const [skipped, setSkipped] = useState(false)
-  const [skipCount, setSkipCount] = useState(0)
-  const [paused, setPaused] = useState(false)
-  const [showEndConfirm, setShowEndConfirm] = useState(false)
-  const [mobileTab, setMobileTab] = useState('player') 
-  const [expandedTeam, setExpandedTeam] = useState(null) 
-
-  const isAdmin = room?.admin_id === user?.id || myTeam?.user_id === room?.admin_id && myTeam?.user_id === user?.id
-
-  useEffect(() => {
-    loadRoom()
-    const socket = getSocket()
-    
-    const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
-    joinRoom()
-    socket.on('connect', joinRoom)
-
-    socket.on('auction:player_up', ({ player:p, lot:l, lotNumber, totalLots, basePriceLakhs, soldCount:sc, unsoldCount:uc }) => {
-      setPlayer(p); setLot(l); setLotNum(lotNumber); setTotal(totalLots)
-      if (sc !== undefined) setSoldCount(sc)
-      if (uc !== undefined) setUnsoldCount(uc)
-      setBid({ amount:basePriceLakhs, teamId:null })
-      setLeader(null); setHistory([]); setTimer(15); setSoldOverlay(null)
-      setSkipped(false); setSkipCount(0)
-      setMobileTab('player') 
-      announcePlayer(p, lotNumber, totalLots)
-    })
-    
-    socket.on('auction:bid', ({ teamId, teamName, amountLakhs }) => {
-      setBid({ amount:amountLakhs, teamId }); setLeader(teamName)
-      setHistory(prev => [{ teamId, teamName, amountLakhs, time:new Date() }, ...prev].slice(0,10))
-      setFlash(true); setTimeout(()=>setFlash(false), 400)
-      announceBid(teamName, amountLakhs)
-    })
-    
-    socket.on('auction:timer', ({ seconds }) => setTimer(seconds))
-    socket.on('auction:skip', ({ skipCount:sc }) => setSkipCount(sc))
-    
-    socket.on('auction:sold', ({ player:p, winnerTeam, finalPrice:fp, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
-      setSoldOverlay({ player:p, team:winnerTeam, price:fp })
-      if (sc!==undefined) setSoldCount(sc)
-      if (uc!==undefined) setUnsoldCount(uc)
-      if (tp!==undefined) setTotal(tp)
-      
-      setTeams(prev => prev.map(t => t.id===winnerTeam.id ? {
-        ...t, purse_remaining_lakhs:winnerTeam.purse_remaining_lakhs,
-        squad_count:winnerTeam.squad_count, overseas_count:winnerTeam.overseas_count,
-        picks:[...(t.picks||[]), { player:p, price_paid_lakhs:fp }]
-      } : t))
-      announceSold(p.name, winnerTeam.team_name, fp)
-    })
-    
-    socket.on('auction:unsold', ({ player:p, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
-      announceUnsold(p.name); setSoldOverlay({ player:p, team:null, price:null })
-      if (sc!==undefined) setSoldCount(sc)
-      if (uc!==undefined) setUnsoldCount(uc)
-      if (tp!==undefined) setTotal(tp)
-    })
-    
-    socket.on('auction:phase', ({ phase:ph, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
-      setPhase(ph)
-      if (sc!==undefined) setSoldCount(sc)
-      if (uc!==undefined) setUnsoldCount(uc)
-      if (tp!==undefined) setTotal(tp)
-      if (ph==='unsold_round') announcePhase(0)
-      if (ph==='finished') setTimeout(()=>navigate(`/squads/${code}`), 3000)
-      if (ph==='unsold_selection') setTimeout(()=>navigate(`/unsold/${code}`), 2000)
-    })
-    
-    socket.on('auction:paused', () => setPaused(true))
-    socket.on('auction:resumed', () => setPaused(false))
-    
-    return () => {
-      socket.removeAllListeners()
-      socket.emit('room:leave', { roomCode: code })
-    }
-  }, [code])
-
-  const loadRoom = async () => {
-    const { data } = await supabase.from('rooms')
-      .select(`
-        *, 
-        room_teams(
-          *, 
-          user:users(display_name,avatar_url),
-          squad_picks(
-            price_paid_lakhs,
-            player:players(name, role)
-          )
-        )
-      `)
-      .eq('code', code)
-      .single()
-      
-    if (!data) return
-    setRoom(data)
-    
-    const formattedTeams = (data.room_teams || []).map(t => ({
-      ...t,
-      picks: t.squad_picks || []
-    }))
-    
-    setTeams(formattedTeams)
-    const my = formattedTeams.find(t=>t.user_id===user?.id)
-    if (my) setMyTeam(my)
+function PlayerCard({ compact, player, lotNum, total, rc, sportIcon, tab, setTab, TABS, statFields, statsObj }) {
+  if (!player) {
+    return (
+      <div className="flex flex-col items-center justify-center h-48 text-muted">
+        <div className="text-4xl mb-3">⏳</div>
+        <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START…</p>
+      </div>
+    )
   }
 
-  const placeBid = (inc) => {
-    if (!lot || !myTeam || paused) return
-    const newAmt = (bid?.amount||0) + inc
-    if (myTeam.purse_remaining_lakhs < newAmt) return
-    setBid({ amount: newAmt, teamId: myTeam.id })
-    getSocket().emit('bid:place', { roomCode:code, lotId:lot.id, teamId:myTeam.id, amountLakhs:newAmt, userId:user?.id })
-  }
-  
-  const skipPlayer = () => {
-    if (!lot || !myTeam || paused) return
-    setSkipped(true)
-    getSocket().emit('bid:skip', { roomCode:code, lotId:lot.id, teamId:myTeam.id })
-  }
-  
-  const toggleMute = () => { const m=!muted; setMutedState(m); setMuted(m) }
-  
-  const togglePause = () => {
-    const s = getSocket()
-    if (paused) s.emit('auction:resume', { roomCode:code, userId:user?.id })
-    else s.emit('auction:pause', { roomCode:code, userId:user?.id })
-  }
-
-  const rc = ROLE_COLORS[player?.role] || ROLE_COLORS.allrounder
-  const isLeading = myTeam && leader === myTeam.team_name
-  const canBid = myTeam && !skipped && myTeam.squad_count<(room?.squad_limit||25) && myTeam.purse_remaining_lakhs>(bid?.amount||0) && !paused
-  const overseasFull = myTeam && player?.is_overseas && myTeam.overseas_count>=(room?.max_overseas||8)
-  const squadFull = myTeam && myTeam.squad_count>=(room?.squad_limit||25)
-  const purseInsuff = myTeam && myTeam.purse_remaining_lakhs<=(bid?.amount||0)
-  
-  const statsObj = tab==='last_ipl'?(player?.stats_last_ipl||{}):tab==='total_ipl'?(player?.stats_total_ipl||{}):(player?.stats_total_t20||{})
-  const statFields = room?.sport==='ipl'
-    ?[['matches','M'],['runs','Runs'],['wickets','Wkts'],['average','Avg'],['strike_rate','SR'],['economy','Eco'],['highest_score','HS'],['best_bowling','BB'],['fifties','50s'],['hundreds','100s']]
-    :room?.sport==='kabaddi'
-    ?[['matches','M'],['raid_points','Raid Pts'],['tackle_points','Tkl Pts'],['super_raids','S.Raids'],['super_tackles','S.Tackles'],['high_5s','High-5s']]
-    :[['matches','M'],['goals','Goals'],['assists','Assists'],['clean_sheets','CS'],['pass_accuracy','Pass%'],['rating','Rating']]
-  const TABS = room?.sport==='ipl'?[['last_ipl','Last IPL'],['total_ipl','IPL Career'],['total_t20','T20 Total']]:room?.sport==='kabaddi'?[['total_ipl','PKL Career']]:[['total_ipl','Career']]
-  const decidedCount = soldCount + unsoldCount
-  const sportIcon = room?.sport==='kabaddi'?'🤼':room?.sport==='football'?'⚽':'🏏'
-
-  // ─── SUB-COMPONENTS ────────────────────────────────────────────────────
-
-  const PlayerCard = ({ compact }) => !player ? (
-    <div className="flex flex-col items-center justify-center h-48 text-muted">
-      <div className="text-4xl mb-3">⏳</div>
-      <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START…</p>
-    </div>
-  ) : (
+  return (
     <div className={`glass ${compact?'p-4':'p-6'} w-full flex flex-col items-center text-center`}>
       <div className="text-[10px] tracking-[2px] uppercase text-muted mb-2">
         Lot #{lotNum} of {total>0?total:'…'}
@@ -258,6 +93,215 @@ export default function AuctionPage() {
       </div>
     </div>
   )
+}
+
+export default function AuctionPage() {
+  const { code } = useParams()
+  const navigate = useNavigate()
+  const { user } = useStore()
+  const [room, setRoom] = useState(null)
+  const [teams, setTeams] = useState([])
+  const [myTeam, setMyTeam] = useState(null)
+  const [player, setPlayer] = useState(null)
+  const [lot, setLot] = useState(null)
+  const [lotNum, setLotNum] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [soldCount, setSoldCount] = useState(0)
+  const [unsoldCount, setUnsoldCount] = useState(0)
+  const [bid, setBid] = useState(null)
+  const [leader, setLeader] = useState(null)
+  const [history, setHistory] = useState([])
+  const [timer, setTimer] = useState(15)
+  const [phase, setPhase] = useState('main')
+  const [tab, setTab] = useState('last_ipl')
+  const [muted, setMutedState] = useState(false)
+  const [soldOverlay, setSoldOverlay] = useState(null)
+  const [flash, setFlash] = useState(false)
+  const [skipped, setSkipped] = useState(false)
+  const [skipCount, setSkipCount] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const [showEndConfirm, setShowEndConfirm] = useState(false)
+  const [mobileTab, setMobileTab] = useState('player') 
+  const [expandedTeam, setExpandedTeam] = useState(null) 
+  const currentPlayerRef = useRef(null)
+  const currentLotNumRef = useRef(0)
+  const currentTotalRef = useRef(0)
+  const myTeamRef = useRef(null)
+
+  const isAdmin = room?.admin_id === user?.id || myTeam?.user_id === room?.admin_id && myTeam?.user_id === user?.id
+
+  useEffect(() => {
+    currentPlayerRef.current = player
+    currentLotNumRef.current = lotNum
+    currentTotalRef.current = total
+  }, [player, lotNum, total])
+
+  useEffect(() => {
+    myTeamRef.current = myTeam
+  }, [myTeam])
+
+  useEffect(() => {
+    loadRoom()
+    primeAnnouncements()
+    const socket = getSocket()
+    
+    const joinRoom = () => socket.emit('room:join', { roomCode: code, userId: user?.id })
+    joinRoom()
+    socket.on('connect', joinRoom)
+
+    socket.on('auction:player_up', ({ player:p, lot:l, lotNumber, totalLots, basePriceLakhs, soldCount:sc, unsoldCount:uc }) => {
+      setPlayer(p); setLot(l); setLotNum(lotNumber); setTotal(totalLots)
+      if (sc !== undefined) setSoldCount(sc)
+      if (uc !== undefined) setUnsoldCount(uc)
+      setBid({ amount:basePriceLakhs, teamId:null })
+      setLeader(null); setHistory([]); setTimer(15); setSoldOverlay(null)
+      setSkipped(false); setSkipCount(0)
+      setMobileTab('player') 
+      announcePlayer(p, lotNumber, totalLots)
+    })
+    
+    socket.on('auction:bid', ({ teamId, teamName, amountLakhs }) => {
+      setBid({ amount:amountLakhs, teamId }); setLeader(teamName)
+      setHistory(prev => [{ teamId, teamName, amountLakhs, time:new Date() }, ...prev].slice(0,10))
+      setFlash(true); setTimeout(()=>setFlash(false), 400)
+      if (teamId && teamId === myTeamRef.current?.id) announceMyBid(amountLakhs)
+      else announceBid(teamName, amountLakhs)
+    })
+    
+    socket.on('auction:timer', ({ seconds }) => setTimer(seconds))
+    socket.on('auction:skip', ({ teamId, skipCount:sc }) => {
+      setSkipCount(sc)
+      if (teamId && teamId === myTeamRef.current?.id) announceSkip()
+    })
+    
+    socket.on('auction:sold', ({ player:p, winnerTeam, finalPrice:fp, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
+      setSoldOverlay({ player:p, team:winnerTeam, price:fp })
+      if (sc!==undefined) setSoldCount(sc)
+      if (uc!==undefined) setUnsoldCount(uc)
+      if (tp!==undefined) setTotal(tp)
+      
+      setTeams(prev => prev.map(t => t.id===winnerTeam.id ? {
+        ...t, purse_remaining_lakhs:winnerTeam.purse_remaining_lakhs,
+        squad_count:winnerTeam.squad_count, overseas_count:winnerTeam.overseas_count,
+        picks:[...(t.picks||[]), { player:p, price_paid_lakhs:fp }]
+      } : t))
+      announceSold(p.name, winnerTeam.team_name, fp)
+    })
+    
+    socket.on('auction:unsold', ({ player:p, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
+      announceUnsold(p.name); setSoldOverlay({ player:p, team:null, price:null })
+      if (sc!==undefined) setSoldCount(sc)
+      if (uc!==undefined) setUnsoldCount(uc)
+      if (tp!==undefined) setTotal(tp)
+    })
+    
+    socket.on('auction:phase', ({ phase:ph, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
+      setPhase(ph)
+      if (sc!==undefined) setSoldCount(sc)
+      if (uc!==undefined) setUnsoldCount(uc)
+      if (tp!==undefined) setTotal(tp)
+      if (ph==='unsold_round') announcePhase(0)
+      if (ph==='finished') setTimeout(()=>navigate(`/squads/${code}`), 3000)
+      if (ph==='unsold_selection') setTimeout(()=>navigate(`/unsold/${code}`), 2000)
+    })
+    
+    socket.on('auction:paused', () => {
+      setPaused(true)
+      stopAnnouncements()
+    })
+    socket.on('auction:resumed', () => {
+      setPaused(false)
+      if (currentPlayerRef.current && currentLotNumRef.current && currentTotalRef.current) {
+        announcePlayer(currentPlayerRef.current, currentLotNumRef.current, currentTotalRef.current)
+      }
+    })
+    
+    return () => {
+      stopAnnouncements()
+      socket.removeAllListeners()
+      socket.emit('room:leave', { roomCode: code })
+    }
+  }, [code])
+
+  const loadRoom = async () => {
+    const { data } = await supabase.from('rooms')
+      .select(`
+        *, 
+        room_teams(
+          *, 
+          user:users(display_name,avatar_url),
+          squad_picks(
+            price_paid_lakhs,
+            player:players(name, role)
+          )
+        )
+      `)
+      .eq('code', code)
+      .single()
+      
+    if (!data) return
+    setRoom(data)
+    
+    const formattedTeams = (data.room_teams || []).map(t => ({
+      ...t,
+      picks: t.squad_picks || []
+    }))
+    
+    setTeams(formattedTeams)
+    const my = formattedTeams.find(t=>t.user_id===user?.id)
+    if (my) setMyTeam(my)
+  }
+
+  const placeBid = (inc) => {
+    if (!lot || !myTeam || paused) return
+    primeAnnouncements()
+    stopAnnouncements()
+    const newAmt = (bid?.amount||0) + inc
+    if (myTeam.purse_remaining_lakhs < newAmt) return
+    setBid({ amount: newAmt, teamId: myTeam.id })
+    getSocket().emit('bid:place', { roomCode:code, lotId:lot.id, teamId:myTeam.id, amountLakhs:newAmt, userId:user?.id })
+  }
+  
+  const skipPlayer = () => {
+    if (!lot || !myTeam || paused) return
+    primeAnnouncements()
+    stopAnnouncements()
+    setSkipped(true)
+    getSocket().emit('bid:skip', { roomCode:code, lotId:lot.id, teamId:myTeam.id })
+  }
+  
+  const toggleMute = () => {
+    primeAnnouncements()
+    const m=!muted
+    setMutedState(m)
+    setMuted(m)
+  }
+  
+  const togglePause = () => {
+    primeAnnouncements()
+    const s = getSocket()
+    if (paused) s.emit('auction:resume', { roomCode:code, userId:user?.id })
+    else s.emit('auction:pause', { roomCode:code, userId:user?.id })
+  }
+
+  const rc = ROLE_COLORS[player?.role] || ROLE_COLORS.allrounder
+  const isLeading = myTeam && leader === myTeam.team_name
+  const canBid = myTeam && !skipped && myTeam.squad_count<(room?.squad_limit||25) && myTeam.purse_remaining_lakhs>(bid?.amount||0) && !paused
+  const overseasFull = myTeam && player?.is_overseas && myTeam.overseas_count>=(room?.max_overseas||8)
+  const squadFull = myTeam && myTeam.squad_count>=(room?.squad_limit||25)
+  const purseInsuff = myTeam && myTeam.purse_remaining_lakhs<=(bid?.amount||0)
+  
+  const statsObj = tab==='last_ipl'?(player?.stats_last_ipl||{}):tab==='total_ipl'?(player?.stats_total_ipl||{}):(player?.stats_total_t20||{})
+  const statFields = room?.sport==='ipl'
+    ?[['matches','M'],['runs','Runs'],['wickets','Wkts'],['average','Avg'],['strike_rate','SR'],['economy','Eco'],['highest_score','HS'],['best_bowling','BB'],['fifties','50s'],['hundreds','100s']]
+    :room?.sport==='kabaddi'
+    ?[['matches','M'],['raid_points','Raid Pts'],['tackle_points','Tkl Pts'],['super_raids','S.Raids'],['super_tackles','S.Tackles'],['high_5s','High-5s']]
+    :[['matches','M'],['goals','Goals'],['assists','Assists'],['clean_sheets','CS'],['pass_accuracy','Pass%'],['rating','Rating']]
+  const TABS = room?.sport==='ipl'?[['last_ipl','Last IPL'],['total_ipl','IPL Career'],['total_t20','T20 Total']]:room?.sport==='kabaddi'?[['total_ipl','PKL Career']]:[['total_ipl','Career']]
+  const decidedCount = soldCount + unsoldCount
+  const sportIcon = room?.sport==='kabaddi'?'🤼':room?.sport==='football'?'⚽':'🏏'
+
+  // ─── SUB-COMPONENTS ────────────────────────────────────────────────────
 
   // ✅ UPDATED BidButtons component
   const BidButtons = () => {
@@ -431,7 +475,21 @@ export default function AuctionPage() {
           <TeamsList/>
         </div>
         <div className="overflow-y-auto flex flex-col items-center justify-start px-6 py-5 custom-scrollbar">
-          <div className="w-full max-w-[460px]"><PlayerCard compact={false}/></div>
+          <div className="w-full max-w-[460px]">
+            <PlayerCard
+              compact={false}
+              player={player}
+              lotNum={lotNum}
+              total={total}
+              rc={rc}
+              sportIcon={sportIcon}
+              tab={tab}
+              setTab={setTab}
+              TABS={TABS}
+              statFields={statFields}
+              statsObj={statsObj}
+            />
+          </div>
         </div>
         <div className="overflow-y-auto border-l flex flex-col items-center py-5 px-4 custom-scrollbar"
              style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.15)'}}>
@@ -463,7 +521,23 @@ export default function AuctionPage() {
 
       <div className="flex md:hidden flex-col flex-1 overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {mobileTab==='player' && <div className="px-3 py-3"><PlayerCard compact={true}/></div>}
+          {mobileTab==='player' && (
+            <div className="px-3 py-3">
+              <PlayerCard
+                compact={true}
+                player={player}
+                lotNum={lotNum}
+                total={total}
+                rc={rc}
+                sportIcon={sportIcon}
+                tab={tab}
+                setTab={setTab}
+                TABS={TABS}
+                statFields={statFields}
+                statsObj={statsObj}
+              />
+            </div>
+          )}
 
           {mobileTab==='bid' && (
             <div className="px-4 py-4 flex flex-col gap-3">

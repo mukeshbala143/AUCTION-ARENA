@@ -9,6 +9,33 @@ const ROLES = ['all', 'batsman', 'allrounder', 'bowler', 'wicketkeeper']
 const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'}}
 const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D']
 
+function getSafePlayerImage(url) {
+  if (!url || typeof url !== 'string') return null
+
+  try {
+    const parsed = new URL(url)
+    const proxyHosts = new Set([
+      'external-content.duckduckgo.com',
+      'duckduckgo.com'
+    ])
+
+    if (proxyHosts.has(parsed.hostname)) {
+      const actualUrl = parsed.searchParams.get('u')
+      if (!actualUrl) return null
+      return getSafePlayerImage(decodeURIComponent(actualUrl))
+    }
+
+    return parsed.toString()
+  } catch {
+    if (url.startsWith('/')) return url
+    return null
+  }
+}
+
+function getPlayerImage(player) {
+  return getSafePlayerImage(player?.image_url || player?.photo_url)
+}
+
 export default function UnsoldPage() {
   const { code } = useParams()
   const navigate = useNavigate()
@@ -19,6 +46,7 @@ export default function UnsoldPage() {
   const [unsoldList, setUnsoldList] = useState([])
   const [selected, setSelected] = useState([]) 
   const [roleFilter, setRoleFilter] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
   const [isDone, setIsDone] = useState(false)
   const [doneTeams, setDoneTeams] = useState([]) 
   const [loading, setLoading] = useState(false)
@@ -95,12 +123,20 @@ export default function UnsoldPage() {
     const isSelected = selected.includes(lotId)
     if (isSelected) {
       setSelected(prev => prev.filter(id => id !== lotId))
-      await supabase.from('unsold_selections')
+      const { error } = await supabase.from('unsold_selections')
         .delete().eq('team_id', myTeam.id).eq('lot_id', lotId)
+      if (error) {
+        console.error("Error removing selection:", error.message)
+        setSelected(prev => [...prev, lotId]) // Revert UI on failure
+      }
     } else {
       setSelected(prev => [...prev, lotId])
-      await supabase.from('unsold_selections')
+      const { error } = await supabase.from('unsold_selections')
         .upsert({ room_id: room.id, team_id: myTeam.id, lot_id: lotId })
+      if (error) {
+        console.error("Error adding selection:", error.message)
+        setSelected(prev => prev.filter(id => id !== lotId)) // Revert UI on failure
+      }
     }
   }
 
@@ -145,11 +181,18 @@ export default function UnsoldPage() {
   const mySquadFull = myTeam && myTeam.squad_count >= squadLimit
   const myPurseEmpty = myTeam && myTeam.purse_remaining_lakhs <= 0
 
-  const filteredList = unsoldList.filter(l =>
-    roleFilter === 'all' ? true :
-    roleFilter === 'uncapped' ? !l.player?.is_capped :
-    l.player?.role === roleFilter
-  )
+  const filteredList = unsoldList.filter(l => {
+    const matchesRole =
+      roleFilter === 'all'
+        ? true
+        : roleFilter === 'uncapped'
+          ? !l.player?.is_capped
+          : l.player?.role === roleFilter
+
+    const matchesSearch = l.player?.name?.toLowerCase().includes(searchTerm.trim().toLowerCase())
+
+    return matchesRole && matchesSearch
+  })
 
   const allTeamsDone = teams.length > 0 && teams.every(t => doneTeams.includes(t.id))
 
@@ -237,23 +280,45 @@ export default function UnsoldPage() {
         <div className="flex-1 flex flex-col overflow-hidden">
           
           {/* Role filter tabs */}
-          <div className="flex items-center gap-1 px-4 py-3 flex-shrink-0 overflow-x-auto custom-scrollbar"
+          <div className="flex flex-col gap-3 px-4 py-3 flex-shrink-0"
                style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
-            <span className="text-xs text-muted mr-2 flex-shrink-0 tracking-widest uppercase">Filter:</span>
-            {['all', ...ROLES.filter(r=>r!=='all'), 'uncapped'].map(r => (
-              <button key={r} onClick={() => setRoleFilter(r)}
-                      className="px-3 py-1.5 text-[10px] sm:text-[11px] font-bold tracking-wider uppercase transition-all rounded-lg flex-shrink-0 whitespace-nowrap"
-                      style={{background: roleFilter===r ? 'rgba(242,166,35,0.15)' : 'rgba(255,255,255,0.03)',
-                              color: roleFilter===r ? '#F2A623' : '#7A7870',
-                              border: `0.5px solid ${roleFilter===r ? 'rgba(242,166,35,0.3)' : 'rgba(255,255,255,0.05)'}`}}>
-                {r}
-              </button>
-            ))}
-            <div className="flex-1 hidden sm:block"/>
-            {/* Desktop only Selected badge */}
-            <span className="text-[10px] sm:text-xs text-gold font-bold px-2 py-1 rounded bg-gold/10 whitespace-nowrap shrink-0 hidden sm:block">
-              {selected.length} Selected
-            </span>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted">🔍</span>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search player name"
+                  className="w-full rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-white/30 outline-none"
+                  style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.08)'}}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted hover:text-white transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <span className="text-[10px] sm:text-xs text-gold font-bold px-2 py-1 rounded bg-gold/10 whitespace-nowrap shrink-0 hidden sm:block">
+                {selected.length} Selected
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar">
+              <span className="text-xs text-muted mr-2 flex-shrink-0 tracking-widest uppercase">Filter:</span>
+              {['all', ...ROLES.filter(r=>r!=='all'), 'uncapped'].map(r => (
+                <button key={r} onClick={() => setRoleFilter(r)}
+                        className="px-3 py-1.5 text-[10px] sm:text-[11px] font-bold tracking-wider uppercase transition-all rounded-lg flex-shrink-0 whitespace-nowrap"
+                        style={{background: roleFilter===r ? 'rgba(242,166,35,0.15)' : 'rgba(255,255,255,0.03)',
+                                color: roleFilter===r ? '#F2A623' : '#7A7870',
+                                border: `0.5px solid ${roleFilter===r ? 'rgba(242,166,35,0.3)' : 'rgba(255,255,255,0.05)'}`}}>
+                  {r}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* ✅ MOBILE ACTION BAR (Top View for mobile only) */}
@@ -320,6 +385,7 @@ export default function UnsoldPage() {
                 {filteredList.map(l => {
                   const isSelected = selected.includes(l.id)
                   const rc = ROLE_COLORS[l.player?.role] || ROLE_COLORS.allrounder
+                  const imageUrl = getPlayerImage(l.player)
                   
                   return (
                     <div key={l.id}
@@ -337,8 +403,8 @@ export default function UnsoldPage() {
                       
                       <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mb-3"
                            style={{background:'linear-gradient(135deg,#1a2535,#2a1a2a)', border:`1.5px solid ${rc.b}`, boxShadow:`0 0 15px ${rc.bg}`}}>
-                        {l.player?.photo_url
-                          ? <img src={l.player.photo_url} className="w-full h-full rounded-full object-cover" onError={e=>e.target.style.display='none'}/>
+                        {imageUrl
+                          ? <img src={imageUrl} alt={l.player?.name || 'Player'} className="w-full h-full rounded-full object-cover" onError={e=>e.target.style.display='none'}/>
                           : '🏏'}
                       </div>
                       
@@ -352,7 +418,7 @@ export default function UnsoldPage() {
                 {filteredList.length === 0 && (
                   <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted text-sm">
                     <div className="text-4xl mb-3 opacity-50">🔍</div>
-                    <p>No unsold players found in this category.</p>
+                    <p>No unsold players found for this filter or search.</p>
                   </div>
                 )}
               </div>

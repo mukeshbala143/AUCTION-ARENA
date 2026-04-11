@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { exchangeCodeForSessionIfPresent } from '../lib/supabase'
+import { API_BASE_URL } from '../lib/config'
 import { useStore } from '../store'
 
 const SPORTS = [
@@ -67,7 +68,7 @@ export default function LandingPage() {
     // --- Fetch total registered users ---
     const fetchUserCount = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_SOCKET_URL}/api/stats`);
+        const res = await fetch(`${API_BASE_URL}/api/stats`);
         if (res.ok) {
           const data = await res.json();
           setTotalUsers(data.totalUsers || 0);

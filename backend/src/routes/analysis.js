@@ -51,6 +51,84 @@ function finishLabel(index, total) {
   return 'Bottom Half'
 }
 
+function avg(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return 0
+  return arr.reduce((sum, value) => sum + toNum(value), 0) / arr.length
+}
+
+function roundScore(value) {
+  return Math.round(clamp(toNum(value), 0, 100))
+}
+
+function textIncludes(value, pattern) {
+  return String(value || '').toLowerCase().includes(pattern)
+}
+
+function sortTeamsForRanking(teams) {
+  teams.sort((a, b) => {
+    const scoreDiff = toNum(b.overall_score) - toNum(a.overall_score)
+    if (scoreDiff !== 0) return scoreDiff
+
+    const completionA = toNum(a?.squad_status?.completion_pct)
+    const completionB = toNum(b?.squad_status?.completion_pct)
+    if (completionA !== completionB) return completionB - completionA
+
+    const sizeA = toNum(a?.squad_status?.actual_size ?? a?.roster_summary?.player_count)
+    const sizeB = toNum(b?.squad_status?.actual_size ?? b?.roster_summary?.player_count)
+    if (sizeA !== sizeB) return sizeA - sizeB
+
+    return String(a.team_name || '').localeCompare(String(b.team_name || ''))
+  })
+}
+
+function getAuctionTimingInsights(buyEvents, totalLots) {
+  const events = Array.isArray(buyEvents) ? [...buyEvents].sort((a, b) => toNum(a.lot_number) - toNum(b.lot_number)) : []
+  if (!events.length || totalLots <= 0) {
+    return {
+      score: 50,
+      label: 'No completed buys',
+      average_phase: 'No data',
+      summary: 'No completed player purchases were available to evaluate owner buying timing.',
+      total_buys: 0,
+      first_buy_at: null,
+      last_buy_at: null,
+    }
+  }
+
+  const lotPercents = events.map((event) => clamp(toNum(event.lot_number) / Math.max(totalLots, 1), 0, 1))
+  const averagePercent = avg(lotPercents)
+  const spread = Math.max(...lotPercents) - Math.min(...lotPercents)
+  const timingScore = clamp(62 + spread * 28 - Math.abs(averagePercent - 0.52) * 42, 35, 100)
+
+  let label = 'Balanced timing'
+  let averagePhase = 'Mid auction'
+  let summary = 'Owner spread purchases across the auction and avoided overcommitting to one phase.'
+
+  if (averagePercent <= 0.34) {
+    label = 'Early aggression'
+    averagePhase = 'Early auction'
+    summary = 'Owner secured a large share of players early, which can build a fast core but leaves less room for late value.'
+  } else if (averagePercent >= 0.68) {
+    label = 'Late value hunt'
+    averagePhase = 'Late auction'
+    summary = 'Owner waited deeper into the auction for buys, suggesting value hunting and selective bidding.'
+  } else if (spread < 0.18) {
+    label = 'Clustered buying'
+    averagePhase = 'Compressed window'
+    summary = 'Most buys came in a narrow auction window, so flexibility across the full auction looked limited.'
+  }
+
+  return {
+    score: roundScore(timingScore),
+    label,
+    average_phase: averagePhase,
+    summary,
+    total_buys: events.length,
+    first_buy_at: events[0]?.sold_at || null,
+    last_buy_at: events[events.length - 1]?.sold_at || null,
+  }
+}
+
 function getPlayerPerformanceSignals(player, sport) {
   const last = player?.stats_last_ipl || {}
   const total = player?.stats_total_ipl || {}
@@ -98,6 +176,197 @@ function getPlayerPerformanceSignals(player, sport) {
   }
 }
 
+function getCricketSpecializationSignals(player) {
+  const role = String(player?.role || '').toLowerCase()
+  const battingStyle = String(player?.batting_style || '').toLowerCase()
+  const bowlingStyle = String(player?.bowling_style || '').toLowerCase()
+  const t20 = player?.stats_total_t20 || {}
+  const last = player?.stats_last_ipl || {}
+
+  let score = 44
+  const tags = []
+
+  if (role === 'batsman') {
+    score += 10
+    if (toNum(t20.strike_rate) >= 135 || toNum(last.strike_rate) >= 135) {
+      score += 12
+      tags.push('T20 aggressor')
+    }
+    if (toNum(t20.average) >= 28 || toNum(last.average) >= 28) {
+      score += 8
+      tags.push('stability batter')
+    }
+  }
+
+  if (role === 'wicketkeeper') {
+    score += 10
+    tags.push('keeper-batter option')
+  }
+
+  if (role === 'allrounder') {
+    score += 14
+    tags.push('multi-skill balance')
+    if (toNum(t20.runs) > 500 && toNum(t20.wickets) > 20) score += 10
+  }
+
+  if (role === 'bowler') {
+    score += 12
+    if (toNum(t20.economy) > 0 && toNum(t20.economy) <= 8.2) {
+      score += 10
+      tags.push('economy control')
+    }
+    if (toNum(t20.wickets) >= 35 || toNum(last.wickets) >= 14) {
+      score += 10
+      tags.push('strike bowler')
+    }
+  }
+
+  if (textIncludes(bowlingStyle, 'left-arm')) {
+    score += 6
+    tags.push('left-arm variation')
+  }
+  if (textIncludes(bowlingStyle, 'spin') || textIncludes(bowlingStyle, 'orthodox') || textIncludes(bowlingStyle, 'legbreak')) {
+    score += 6
+    tags.push('spin option')
+  }
+  if (textIncludes(bowlingStyle, 'fast')) {
+    score += 6
+    tags.push('pace option')
+  }
+  if (textIncludes(battingStyle, 'left')) {
+    score += 4
+    tags.push('left-hand matchup')
+  }
+
+  return {
+    score: roundScore(score),
+    tags: uniqueText(tags, 3),
+  }
+}
+
+function getCricketRecordSignals(player) {
+  const ipl = player?.stats_total_ipl || {}
+  const t20 = player?.stats_total_t20 || {}
+  const last = player?.stats_last_ipl || {}
+  const perf = getPlayerPerformanceSignals(player, 'ipl')
+
+  const iplMatches = toNum(ipl.matches)
+  const t20Matches = toNum(t20.matches)
+  const battingVolume = toNum(t20.runs) + toNum(ipl.runs) * 0.6
+  const bowlingVolume = toNum(t20.wickets) * 22 + toNum(ipl.wickets) * 15
+
+  const t20Record = clamp(
+    28 +
+      Math.min(t20Matches / 2.4, 26) +
+      Math.min(battingVolume / 260, 24) +
+      Math.min(bowlingVolume / 55, 22) +
+      Math.min(toNum(t20.strike_rate) / 18, 8) +
+      Math.min(toNum(last.economy) > 0 ? (8.6 - toNum(last.economy)) * 7 : 0, 8),
+    0,
+    100
+  )
+
+  const fiveYearIplProxy = clamp(
+    24 +
+      Math.min(iplMatches / 1.6, 32) +
+      Math.min(toNum(ipl.runs) / 140, 20) +
+      Math.min(toNum(ipl.wickets) * 1.8, 18) +
+      Math.min(toNum(last.runs) / 45, 8) +
+      Math.min(toNum(last.wickets) * 0.9, 8),
+    0,
+    100
+  )
+
+  const consistency = clamp(
+    40 +
+      Math.min(iplMatches / 4, 12) +
+      Math.min(t20Matches / 8, 10) -
+      Math.abs(perf.current_score - perf.recent_score) * 1.6 +
+      Math.min(toNum(ipl.average) / 6, 8) +
+      Math.min(toNum(t20.average) / 6, 8),
+    0,
+    100
+  )
+
+  const availability = clamp(
+    36 +
+      Math.min(t20Matches / 3.2, 28) +
+      Math.min(iplMatches / 3, 20) +
+      Math.min(toNum(last.matches) * 2.2, 12) +
+      Math.max(0, perf.current_score - 45) * 0.4,
+    0,
+    100
+  )
+
+  return {
+    t20_record: roundScore(t20Record),
+    five_year_ipl_proxy: roundScore(fiveYearIplProxy),
+    consistency: roundScore(consistency),
+    fitness_availability: roundScore(availability),
+  }
+}
+
+function getPlayerRankValue(player) {
+  const perf = player?.performance || {}
+  const record = player?.record || {}
+  const specialization = player?.specialization || {}
+
+  return roundScore(
+    toNum(perf.recent_score) * 0.2 +
+      toNum(perf.current_score) * 0.24 +
+      toNum(record.t20_record) * 0.22 +
+      toNum(record.five_year_ipl_proxy) * 0.12 +
+      toNum(record.consistency) * 0.1 +
+      toNum(record.fitness_availability) * 0.06 +
+      toNum(specialization.score) * 0.06
+  )
+}
+
+function buildTopPlayers(players, limit = 3) {
+  return [...(players || [])]
+    .sort((a, b) => getPlayerRankValue(b) - getPlayerRankValue(a))
+    .slice(0, limit)
+    .map((player) => ({
+      name: player.name,
+      role: player.role,
+      impact_score: getPlayerRankValue(player),
+      reason: uniqueText([
+        toNum(player?.record?.t20_record) >= 65 ? 'strong T20 record' : '',
+        toNum(player?.performance?.current_score) >= 60 ? 'current form is strong' : '',
+        toNum(player?.performance?.recent_score) >= 60 ? 'last IPL season was productive' : '',
+        toNum(player?.specialization?.score) >= 62 ? (player?.specialization?.tags || [])[0] || 'specialist skill value' : '',
+      ], 2).join(' + ') || 'balanced player profile',
+    }))
+}
+
+function buildWinnerSummary(team) {
+  if (!team) return null
+  const reasons = uniqueText([
+    ...(team.strengths || []),
+    toNum(team?.score_breakdown?.t20_record) >= 65 ? 'Team holds one of the strongest T20 record profiles in the room.' : '',
+    toNum(team?.score_breakdown?.current_form) >= 60 ? 'Current form score keeps this squad ahead of rivals.' : '',
+    team?.squad_status?.is_complete ? 'Team satisfied the full squad-size target set by the admin.' : '',
+  ], 3)
+
+  return {
+    team_name: team.team_name,
+    overall_score: team.overall_score,
+    squad_size: team?.squad_status?.actual_size ?? team?.roster_summary?.player_count ?? 0,
+    reasons,
+    top_players: team.top_players || [],
+  }
+}
+
+function calculateOverallTeamScore(scoreBreakdown, squadPenalty) {
+  const metricValues = Object.entries(scoreBreakdown).map(([, value]) => toNum(value))
+  const averageScore = metricValues.length ? avg(metricValues) : 0
+
+  return {
+    average_score: roundScore(averageScore),
+    adjusted_score: clamp(Math.round(averageScore) - toNum(squadPenalty?.penalty), 1, 100),
+  }
+}
+
 function estimatePlayerValue(player, sport) {
   const perf = getPlayerPerformanceSignals(player, sport)
   let value = perf.recent_score * 0.52 + perf.current_score * 0.43 + (perf.trend_score + 5) * 0.5
@@ -128,6 +397,26 @@ function buildFallbackAnalysis(room, squads) {
       sq.players.length > 0
         ? sq.players.reduce((a, p) => a + estimatePlayerValue(p, room.sport), 0) / sq.players.length
         : 0
+    const avgRecord =
+      sq.players.length > 0
+        ? sq.players.reduce((a, p) => a + toNum(p.record?.t20_record), 0) / sq.players.length
+        : 0
+    const avgFiveYear =
+      sq.players.length > 0
+        ? sq.players.reduce((a, p) => a + toNum(p.record?.five_year_ipl_proxy), 0) / sq.players.length
+        : 0
+    const avgConsistency =
+      sq.players.length > 0
+        ? sq.players.reduce((a, p) => a + toNum(p.record?.consistency), 0) / sq.players.length
+        : 0
+    const avgAvailability =
+      sq.players.length > 0
+        ? sq.players.reduce((a, p) => a + toNum(p.record?.fitness_availability), 0) / sq.players.length
+        : 0
+    const avgSpecialization =
+      sq.players.length > 0
+        ? sq.players.reduce((a, p) => a + toNum(p.specialization?.score), 0) / sq.players.length
+        : 0
     const avgRecent =
       sq.players.length > 0
         ? sq.players.reduce((a, p) => a + toNum(p.performance?.recent_score), 0) / sq.players.length
@@ -143,40 +432,57 @@ function buildFallbackAnalysis(room, squads) {
     const overseasScore = room.max_overseas
       ? Math.max(0, 100 - Math.abs(sq.overseas_count - Math.min(6, room.max_overseas)) * 14)
       : 60
+    const timing = getAuctionTimingInsights(sq.buy_events, sq.total_lots)
 
-    const overallScore = Math.round(
-      avgValue * 0.33 +
-      avgRecent * 0.2 +
-      avgCurrent * 0.14 +
-      roleCoverage * 100 * 0.18 +
-      budgetScore * 0.1 +
-      depthScore * 0.03 +
-      overseasScore * 0.02
-    )
+    const scoreBreakdown = {
+      player_quality: roundScore(avgValue),
+      t20_record: roundScore(avgRecord),
+      five_year_ipl: roundScore(avgFiveYear),
+      recent_form: roundScore(avgRecent),
+      current_form: roundScore(avgCurrent),
+      consistency: roundScore(avgConsistency),
+      fitness_availability: roundScore(avgAvailability),
+      specialization: roundScore(avgSpecialization),
+      role_balance: roundScore(roleCoverage * 100),
+      budget_efficiency: roundScore(budgetScore),
+      squad_completion: roundScore(depthScore),
+      overseas_usage: roundScore(overseasScore),
+      auction_timing: roundScore(timing.score),
+    }
+
     const squadPenalty = getSquadCompletionPenalty(sq.squad_count, room.squad_limit)
-    const adjustedScore = clamp(overallScore - squadPenalty.penalty, 1, 100)
+    const overallSummary = calculateOverallTeamScore(scoreBreakdown, squadPenalty)
+    const adjustedScore = overallSummary.adjusted_score
 
     const topPlayers = [...sq.players]
       .sort((a, b) => estimatePlayerValue(b, room.sport) - estimatePlayerValue(a, room.sport))
       .slice(0, 11)
       .map((p) => p.name)
+    const topContributors = buildTopPlayers(sq.players, 3)
 
     const strengths = []
     const weaknesses = []
     if (avgValue >= 58) strengths.push('Strong core players with high combined-impact metrics')
+    if (avgRecord >= 64) strengths.push('Squad carries strong T20 record across domestic, franchise, and international sample')
+    if (avgFiveYear >= 62) strengths.push('Past IPL body of work is strong across the group')
     if (avgRecent >= 62) strengths.push('Last-season player performances are consistently strong')
     if (avgCurrent >= 60) strengths.push('Current-form signals across picks are above average')
+    if (avgSpecialization >= 62) strengths.push('Team has strong T20 specialization coverage across batting and bowling roles')
     if (roleCoverage >= 0.85) strengths.push('Well-balanced role distribution for match flexibility')
     if (budgetScore >= 70) strengths.push('Healthy purse efficiency with value-focused buys')
     if (depthScore < 70) weaknesses.push('Squad depth is below ideal for long tournament runs')
+    if (avgRecord < 52) weaknesses.push('Overall T20 record of the squad trails stronger rivals')
     if (roleCoverage < 0.75) weaknesses.push('Role imbalance may create tactical gaps in key phases')
     if (budgetScore < 50) weaknesses.push('Spend pattern suggests a few expensive risk picks')
     if (avgCurrent < 48) weaknesses.push('Current-form trend of picks is below top contenders')
+    if (avgAvailability < 50) weaknesses.push('Availability and match-readiness signals are weaker than top teams')
     if (squadPenalty.missing > 0) {
       weaknesses.push(
         `Incomplete squad: ${squadPenalty.actual}/${squadPenalty.target} players (missing ${squadPenalty.missing})`
       )
     }
+    if (timing.score < 55) weaknesses.push(`Owner buying pattern was less balanced (${timing.label.toLowerCase()})`)
+    if (timing.score >= 75) strengths.push(`Owner managed buying timing well with a ${timing.label.toLowerCase()} approach`)
     if (strengths.length === 0) strengths.push('Competitive foundation with multiple usable combinations')
     if (weaknesses.length === 0) weaknesses.push('Ceiling depends on consistency from secondary picks')
 
@@ -187,14 +493,36 @@ function buildFallbackAnalysis(room, squads) {
       strengths: strengths.slice(0, 3),
       weaknesses: weaknesses.slice(0, 2),
       best_xi: topPlayers,
+      top_players: topContributors,
+      score_breakdown: {
+        ...scoreBreakdown,
+        penalty_points: squadPenalty.penalty,
+        total_before_penalty: overallSummary.average_score,
+      },
+      squad_status: {
+        target_size: squadPenalty.target,
+        actual_size: squadPenalty.actual,
+        missing_players: squadPenalty.missing,
+        is_complete: squadPenalty.missing === 0,
+        completion_pct: roundScore((squadPenalty.actual / Math.max(squadPenalty.target, 1)) * 100),
+      },
+      auction_strategy: timing,
+      roster_summary: {
+        player_count: sq.squad_count,
+        overseas_count: sq.overseas_count,
+        purse_spent: sq.purse_spent,
+        purse_remaining: sq.purse_remaining,
+        role_counts,
+        specialization_tags: uniqueText(sq.players.flatMap((p) => p.specialization?.tags || []), 5),
+      },
       analysis:
         squadPenalty.missing > 0
           ? `This team is penalized for not reaching full squad size (${squadPenalty.actual}/${squadPenalty.target}), which directly lowers ranking points.`
-          : avgValue >= 60
-          ? 'This squad ranks high due to strong last-season returns and dependable current-form indicators across key picks.'
-          : 'This squad can compete, but final rank depends on whether recent performers sustain current form under pressure.',
+          : avgRecord >= 62 && avgCurrent >= 58
+          ? 'This squad ranks high due to a strong T20 record base, recent IPL output, and dependable current-form indicators across key picks.'
+          : 'This squad can compete, but final rank depends on whether its T20 record and recent-form indicators translate under tournament pressure.',
       predicted_finish: 'Top Half',
-      _metrics: { avgRecent, avgCurrent, roleCoverage, budgetScore, depthScore },
+      _metrics: { avgRecent, avgCurrent, roleCoverage, budgetScore, depthScore, avgRecord, avgFiveYear, avgAvailability, avgSpecialization },
     }
   })
 
@@ -206,6 +534,10 @@ function buildFallbackAnalysis(room, squads) {
   }
   const rRecent = rankMetric('avgRecent')
   const rCurrent = rankMetric('avgCurrent')
+  const rRecord = rankMetric('avgRecord')
+  const rFiveYear = rankMetric('avgFiveYear')
+  const rAvailability = rankMetric('avgAvailability')
+  const rSpecialization = rankMetric('avgSpecialization')
   const rRole = rankMetric('roleCoverage')
   const rBudget = rankMetric('budgetScore')
   const rDepth = rankMetric('depthScore')
@@ -217,14 +549,22 @@ function buildFallbackAnalysis(room, squads) {
     const weaknesses = []
     const m = t._metrics
 
+    if (rRecord.get(t.team_name) <= topCut) strengths.push(`T20 record profile ranks among the best (${m.avgRecord.toFixed(1)} score)`)
+    if (rFiveYear.get(t.team_name) <= topCut) strengths.push(`Past IPL body of work is one of the strongest groups (${m.avgFiveYear.toFixed(1)} score)`)
     if (rRecent.get(t.team_name) <= topCut) strengths.push(`Last-season impact among the best (${m.avgRecent.toFixed(1)} score)`)
     if (rCurrent.get(t.team_name) <= topCut) strengths.push(`Current form is a clear advantage (${m.avgCurrent.toFixed(1)} score)`)
+    if (rAvailability.get(t.team_name) <= topCut) strengths.push('Availability and match-readiness signals are strong')
+    if (rSpecialization.get(t.team_name) <= topCut) strengths.push('Specialist skill coverage is better than most squads')
     if (rRole.get(t.team_name) <= topCut) strengths.push('Role balance is strong across the likely first XI')
     if (rBudget.get(t.team_name) <= topCut) strengths.push('Budget usage is efficient relative to other teams')
     if (rDepth.get(t.team_name) <= topCut) strengths.push('Squad depth supports rotation and tactical flexibility')
 
+    if (rRecord.get(t.team_name) > total - lowCut) weaknesses.push(`T20 record base is below the leading teams (${m.avgRecord.toFixed(1)} score)`)
+    if (rFiveYear.get(t.team_name) > total - lowCut) weaknesses.push(`Past IPL strength is lighter than the strongest squads (${m.avgFiveYear.toFixed(1)} score)`)
     if (rRecent.get(t.team_name) > total - lowCut) weaknesses.push(`Last-season output trails most teams (${m.avgRecent.toFixed(1)} score)`)
     if (rCurrent.get(t.team_name) > total - lowCut) weaknesses.push(`Current form trend is below the top teams (${m.avgCurrent.toFixed(1)} score)`)
+    if (rAvailability.get(t.team_name) > total - lowCut) weaknesses.push('Availability and readiness profile is weaker than rivals')
+    if (rSpecialization.get(t.team_name) > total - lowCut) weaknesses.push('Specialist role coverage is thinner than the top teams')
     if (rRole.get(t.team_name) > total - lowCut) weaknesses.push('Role distribution has some tactical gaps')
     if (rBudget.get(t.team_name) > total - lowCut) weaknesses.push('Budget conversion is weaker than rivals')
     if (rDepth.get(t.team_name) > total - lowCut) weaknesses.push('Depth looks thinner for a long tournament')
@@ -238,6 +578,11 @@ function buildFallbackAnalysis(room, squads) {
       ...t,
       strengths: mergedStrengths.length ? mergedStrengths : ['Competitive foundation with useful combinations'],
       weaknesses: mergedWeaknesses.length ? mergedWeaknesses : ['Ceiling depends on consistency from secondary picks'],
+      score_breakdown: t.score_breakdown,
+      squad_status: t.squad_status,
+      auction_strategy: t.auction_strategy,
+      roster_summary: t.roster_summary,
+      top_players: t.top_players,
       analysis:
         coreA && coreB
           ? `${t.analysis} Key upside comes from ${coreA} and ${coreB}, whose recent/current indicators lift this squad profile.`
@@ -245,7 +590,7 @@ function buildFallbackAnalysis(room, squads) {
     }
   })
 
-  teams.sort((a, b) => b.overall_score - a.overall_score)
+  sortTeamsForRanking(teams)
   teams.forEach((t, i) => {
     t.rank = i + 1
     t.predicted_finish = finishLabel(i, total)
@@ -273,10 +618,13 @@ function buildFallbackAnalysis(room, squads) {
   byValue.sort((a, b) => a.value_per_lakh - b.value_per_lakh)
   const overpay = byValue[0]
 
+  const winnerSummary = buildWinnerSummary(teams[0])
+
   return {
     ranked_teams: teams,
+    winner_summary: winnerSummary,
     tournament_summary:
-      'Rankings were generated from every final pick using last-season impact, current-form indicators, role balance, and budget efficiency.',
+      'Rankings were generated from every final pick using T20 record strength, recent IPL impact, current-form indicators, specialization, role balance, squad completion, and budget efficiency.',
     most_valuable_pick: mvp
       ? {
           player_name: mvp.player_name,
@@ -344,6 +692,11 @@ function normalizeAnalysis(raw, squads, fallback, room) {
         2
       ),
       best_xi: bestXI,
+      score_breakdown: fb?.score_breakdown,
+      squad_status: fb?.squad_status,
+      auction_strategy: fb?.auction_strategy,
+      roster_summary: fb?.roster_summary,
+      top_players: fb?.top_players,
       analysis,
       predicted_finish: item.predicted_finish || 'Top Half',
     })
@@ -356,7 +709,7 @@ function normalizeAnalysis(raw, squads, fallback, room) {
     }
   }
 
-  normalized.sort((a, b) => b.overall_score - a.overall_score)
+  sortTeamsForRanking(normalized)
   const total = normalized.length || 1
   normalized.forEach((t, i) => {
     t.rank = i + 1
@@ -367,6 +720,7 @@ function normalizeAnalysis(raw, squads, fallback, room) {
 
   return {
     ranked_teams: normalized,
+    winner_summary: buildWinnerSummary(normalized[0]),
     tournament_summary:
       String(raw.tournament_summary || '').trim() ||
       fallback.tournament_summary,
@@ -419,29 +773,44 @@ module.exports = (supabase) => {
         return res.status(400).json({ error: 'Analysis is available after auction completion.' })
       }
 
-      const { data: teams } = await supabase
+      const { data: teams, error: teamsError } = await supabase
         .from('room_teams')
         .select('*, user:users(display_name)')
         .eq('room_id', room.id)
 
-      const [{ data: picks }, { data: lots }] = await Promise.all([
+      if (teamsError) {
+        throw new Error(`Failed to load room teams: ${teamsError.message}`)
+      }
+
+      const [{ data: picks, error: picksError }, { data: lots, error: lotsError }] = await Promise.all([
         supabase
           .from('squad_picks')
           .select('team_id, price_paid_lakhs, player:players(*)')
           .eq('room_id', room.id),
         supabase
           .from('auction_lots')
-          .select('id')
+          .select('*')
           .eq('room_id', room.id),
       ])
+
+      if (picksError) {
+        throw new Error(`Failed to load squad picks: ${picksError.message}`)
+      }
+
+      if (lotsError) {
+        throw new Error(`Failed to load auction lots: ${lotsError.message}`)
+      }
 
       let bids = []
       const lotIds = (lots || []).map((l) => l.id)
       if (lotIds.length > 0) {
-        const { data: roomBids } = await supabase
+        const { data: roomBids, error: bidsError } = await supabase
           .from('bids')
           .select('team_id')
           .in('lot_id', lotIds)
+        if (bidsError) {
+          throw new Error(`Failed to load bids: ${bidsError.message}`)
+        }
         bids = roomBids || []
       }
 
@@ -450,15 +819,25 @@ module.exports = (supabase) => {
         acc[p.team_id].push(p)
         return acc
       }, {})
+      const buysByTeam = (lots || []).reduce((acc, lot) => {
+        if (!lot?.winner_team_id || (lot?.status && lot.status !== 'sold')) return acc
+        if (!acc[lot.winner_team_id]) acc[lot.winner_team_id] = []
+        acc[lot.winner_team_id].push({
+          lot_number: lot.lot_number,
+          sold_at: lot.sold_at,
+        })
+        return acc
+      }, {})
 
       const activeTeamIds = new Set([
         ...(picks || []).map((p) => p.team_id),
         ...(bids || []).map((b) => b.team_id),
       ])
 
-      const participantTeams = (teams || []).filter((t) =>
-        activeTeamIds.size > 0 ? activeTeamIds.has(t.id) : true
-      )
+      const participantTeams = (teams || []).filter((t) => {
+        const teamPickCount = (picksByTeam[t.id] || []).length
+        return teamPickCount > 0 || toNum(t.squad_count) > 0
+      })
 
       const squads = participantTeams.map((t) => {
         const teamPicks = picksByTeam[t.id] || []
@@ -469,6 +848,8 @@ module.exports = (supabase) => {
           purse_remaining: t.purse_remaining_lakhs,
           overseas_count: t.overseas_count,
           squad_count: t.squad_count,
+          total_lots: (lots || []).length,
+          buy_events: buysByTeam[t.id] || [],
           players: teamPicks.map((p) => {
             const player = {
               name: p.player?.name,
@@ -476,6 +857,8 @@ module.exports = (supabase) => {
               country: p.player?.country,
               is_overseas: p.player?.is_overseas,
               is_capped: p.player?.is_capped,
+              batting_style: p.player?.batting_style,
+              bowling_style: p.player?.bowling_style,
               price_paid: p.price_paid_lakhs,
               base_price: p.player?.base_price_lakhs,
               stats_last_ipl: p.player?.stats_last_ipl,
@@ -485,6 +868,8 @@ module.exports = (supabase) => {
             return {
               ...player,
               performance: getPlayerPerformanceSignals(player, room.sport),
+              record: getCricketRecordSignals(player),
+              specialization: getCricketSpecializationSignals(player),
             }
           }),
         }
@@ -505,7 +890,11 @@ module.exports = (supabase) => {
       }
 
       const systemPrompt = `${sportPrompts[room.sport] || sportPrompts.ipl}
-Important ranking rule: room squad size target is ${room.squad_limit}. If any team has fewer players than this target, apply a clear score penalty and mention it in weaknesses and analysis reason.
+Important ranking rules:
+1. room squad size target is ${room.squad_limit}. If any team has fewer players than this target, apply a clear score penalty and mention it in weaknesses and analysis reason.
+2. consider owner buying timing/auction strategy along with player performance, budget usage, and squad balance.
+3. prioritize T20 suitability: international T20, domestic T20, and franchise T20 signals are more important than non-T20 reputation.
+4. use past IPL strength, current form, specialist roles, and likely availability/readiness when ranking the best team.
 Return only valid JSON using this exact shape:
 {
   "ranked_teams": [
@@ -564,10 +953,31 @@ Important: evaluate every picked player in each team. Give higher weight to last
         room_code: roomCode,
         participant_team_count: squads.length,
         generated_by: generatedBy,
+        room_settings: {
+          squad_limit: room.squad_limit,
+          purse_lakhs: room.purse_lakhs,
+          max_overseas: room.max_overseas,
+          sport: room.sport,
+        },
+        analysis_criteria: [
+          'Player quality based on picked squad',
+          'T20 record across franchise, domestic, and international sample',
+          'Five-year IPL strength proxy from stored IPL stats',
+          'Last-season and current-form performance',
+          'Consistency and availability proxy',
+          'Player specialization and skill coverage',
+          'Role balance and first-XI coverage',
+          'Budget efficiency and purse management',
+          'Squad-size completion against admin target',
+          'Owner buying timing across the auction',
+        ],
       })
     } catch (e) {
       console.error('Analysis error:', e)
-      res.status(500).json({ error: e.message || 'Analysis failed' })
+      res.status(500).json({
+        error: e.message || 'Analysis failed',
+        details: process.env.NODE_ENV === 'production' ? undefined : e.stack,
+      })
     }
   })
 
