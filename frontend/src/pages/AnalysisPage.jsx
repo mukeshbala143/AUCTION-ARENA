@@ -100,7 +100,11 @@ export default function AnalysisPage() {
 
         try {
           const errData = JSON.parse(raw);
-          errMsg = errData?.error || errData?.details || errMsg
+          if (errData?.error && errData?.details) {
+            errMsg = `${errData.error} (${errData.details})`
+          } else {
+            errMsg = errData?.error || errData?.details || errMsg
+          }
         } catch {
           if (raw) errMsg = raw
         }
