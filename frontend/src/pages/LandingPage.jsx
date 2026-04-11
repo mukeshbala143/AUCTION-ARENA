@@ -406,21 +406,21 @@ export default function LandingPage() {
                       <div className="text-xs uppercase tracking-widest text-gold mb-1 font-bold flex items-center gap-2">
                         <span className="text-base">📍</span> FIND US
                       </div>
-                      <p className="text-sm text-white/80 leading-relaxed">GIET University, Gunupur<br/>Odisha - 765022</p>
+                      <p className="text-sm text-white/80 leading-relaxed">Baharagora<br/>Jharkhand</p>
                     </div>
                     
                     <div>
                       <div className="text-xs uppercase tracking-widest text-gold mb-1 font-bold flex items-center gap-2">
                         <span className="text-base">📞</span> CALL US
                       </div>
-                      <p className="text-sm text-white/80">+91 9876543210</p>
+                      <p className="text-sm text-white/80">+91 9142473745, +91 9835656896</p>
                     </div>
                     
                     <div>
                       <div className="text-xs uppercase tracking-widest text-gold mb-1 font-bold flex items-center gap-2">
                         <span className="text-base">✉️</span> EMAIL US
                       </div>
-                      <p className="text-sm text-white/80">support@auctionarena.com</p>
+                      <p className="text-sm text-white/80">support.auctionarena@gmail.com</p>
                     </div>
                   </div>
                 </div>
