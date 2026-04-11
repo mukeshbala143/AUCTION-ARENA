@@ -5,10 +5,15 @@ import { useStore } from '../store'
 import { API_BASE_URL } from '../lib/config'
 
 const SPORTS = [
-  { id:'ipl',      icon:'🏏', label:'IPL Cricket',   color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.4)' },
-  { id:'kabaddi',  icon:'🤼', label:'Pro Kabaddi',   color:'#D85A30', glow:'rgba(216,90,48,0.12)',  border:'rgba(216,90,48,0.4)' },
-  { id:'football', icon:'⚽', label:'World Football',color:'#4CAF7D', glow:'rgba(76,175,125,0.12)', border:'rgba(76,175,125,0.4)' },
+  { id:'ipl',      icon:'🏏', label:'IPL Cricket',    color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.4)', isEnabled:true },
+  { id:'kabaddi',  icon:'🤼', label:'Pro Kabaddi',    color:'#D85A30', glow:'rgba(216,90,48,0.12)',  border:'rgba(216,90,48,0.4)', isEnabled:false },
+  { id:'football', icon:'⚽', label:'World Football', color:'#4CAF7D', glow:'rgba(76,175,125,0.12)', border:'rgba(76,175,125,0.4)', isEnabled:false },
 ]
+
+function getInitialSport(sportParam) {
+  const selectedSport = SPORTS.find(s => s.id === sportParam && s.isEnabled)
+  return selectedSport?.id || 'ipl'
+}
 
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -20,7 +25,7 @@ export default function CreateRoomPage() {
   const { user, profile } = useStore()
   const navigate = useNavigate()
 
-  const [sport, setSport]       = useState(params.get('sport')||'ipl')
+  const [sport, setSport]       = useState(getInitialSport(params.get('sport')))
   const [teams, setTeams]       = useState(6)
   const [purse, setPurse]       = useState(120)
   const [squad, setSquad]       = useState(25)
@@ -69,10 +74,11 @@ export default function CreateRoomPage() {
               {/* Responsive grid for sport selection */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {SPORTS.map(s=>(
-                  <button key={s.id} onClick={()=>setSport(s.id)}
+                  <button key={s.id} onClick={()=>s.isEnabled && setSport(s.id)} disabled={!s.isEnabled}
                           className="relative py-4 sm:py-5 px-4 rounded-xl transition-all text-center flex flex-row sm:flex-col items-center justify-center gap-3 sm:gap-0"
-                          style={{border:sport===s.id?`0.5px solid ${s.border}`:' 0.5px solid rgba(255,255,255,0.08)',background:sport===s.id?s.glow:'rgba(255,255,255,0.02)'}}>
+                          style={{border:sport===s.id?`0.5px solid ${s.border}`:' 0.5px solid rgba(255,255,255,0.08)',background:sport===s.id?s.glow:'rgba(255,255,255,0.02)',cursor:s.isEnabled?'pointer':'not-allowed',opacity:s.isEnabled?1:0.6}}>
                     {sport===s.id&&<div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-gold flex items-center justify-center text-bg text-[10px] font-bold">✓</div>}
+                    {!s.isEnabled&&<div className="absolute top-2 right-2 px-2 py-1 rounded-md text-[9px] font-bold tracking-[1px] uppercase" style={{background:'rgba(216,90,48,0.16)',color:'#ffb89f',border:'0.5px solid rgba(216,90,48,0.5)'}}>Coming Soon</div>}
                     <div className="text-2xl sm:text-3xl sm:mb-2">{s.icon}</div>
                     <div className="text-xs font-bold" style={{color:sport===s.id?s.color:'#7A7870'}}>{s.label}</div>
                   </button>
