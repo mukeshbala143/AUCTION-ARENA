@@ -14,7 +14,7 @@ export default function LobbyPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [myTeamId, setMyTeamId] = useState(null)
   
-  // Naye states Edit feature ke liye
+  // States for Edit feature
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({})
   const [saving, setSaving] = useState(false)
@@ -48,7 +48,12 @@ export default function LobbyPage() {
   }, [code, user])
 
   const loadRoom = async () => {
-    const { data } = await supabase.from('rooms').select('*, room_teams(*, user:users(display_name,avatar_url))').eq('code', code).single()
+    const { data } = await supabase
+      .from('rooms')
+      .select('*, admin:users!rooms_admin_id_fkey(display_name, avatar_url), room_teams(*, user:users(display_name,avatar_url))')
+      .eq('code', code)
+      .single()
+      
     if (!data) return
     setRoom(data)
     setTeams(data.room_teams || [])
@@ -116,6 +121,9 @@ export default function LobbyPage() {
   const readyCount = teams.filter(t=>t.is_ready).length
   const sportLabels = { ipl:'🏏 IPL Cricket', kabaddi:'🤼 Pro Kabaddi', football:'⚽ Football' }
 
+  const displayRoomName = room?.room_name; 
+  const actualAdminName = room?.admin?.display_name || 'Admin';
+
   return (
     <div className="min-h-screen bg-bg relative">
       <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.07)',top:-180,right:-150}}/>
@@ -132,7 +140,7 @@ export default function LobbyPage() {
         )}
       </nav>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-8 pt-24 pb-12">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 pt-24 pb-12">
         
         {/* BACK BUTTON */}
         <Link to="/create-room" className="inline-flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-muted hover:text-gold transition-colors mb-6 anim-1">
@@ -140,18 +148,30 @@ export default function LobbyPage() {
         </Link>
 
         {/* CODE BANNER */}
-        <div className="glass p-6 mb-8 flex items-center justify-between anim-1">
+        <div className="glass p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 anim-1">
           <div>
+            {displayRoomName && (
+              <h2 className="font-bebas text-3xl sm:text-4xl tracking-[2px] text-white mb-4 break-words">
+                {displayRoomName}
+              </h2>
+            )}
+            
             <div className="text-xs tracking-[2px] uppercase text-muted mb-1">Room Code</div>
-            <div className="font-bebas text-5xl tracking-[10px] text-gold" style={{textShadow:'0 0 40px rgba(242,166,35,0.35)'}}>{code}</div>
-            <div className="text-muted text-sm mt-1">{room && sportLabels[room.sport]} · Created by {room?.admin?.display_name||'Admin'}</div>
+            <div className="font-bebas text-5xl sm:text-6xl tracking-[10px] text-gold leading-none" style={{textShadow:'0 0 40px rgba(242,166,35,0.35)'}}>{code}</div>
+            
+            <div className="text-muted text-sm mt-3 flex flex-wrap items-center gap-2">
+              <span>{room && sportLabels[room.sport]}</span>
+              <span className="hidden sm:inline">·</span>
+              <span>Created by <strong className="text-white/90 font-semibold">{actualAdminName}</strong></span>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-3">
-            <button onClick={copyCode} className="flex items-center gap-2 px-4 py-2 rounded-full text-gold text-sm font-semibold transition-all hover:opacity-80"
+          
+          <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-4 border-t border-white/5 pt-4 md:pt-0 md:border-t-0">
+            <button onClick={copyCode} className="flex items-center gap-2 px-5 py-2.5 rounded-full text-gold text-sm font-semibold transition-all hover:bg-gold/20"
                     style={{background:'rgba(242,166,35,0.1)',border:'0.5px solid rgba(242,166,35,0.3)'}}>
               📋 Copy Code
             </button>
-            <div className="flex items-center gap-2 text-emerald text-xs">
+            <div className="flex items-center gap-2 text-emerald text-xs font-bold tracking-widest uppercase">
               <span className="w-2 h-2 rounded-full bg-emerald" style={{animation:'pulse 2s infinite'}}/>
               Live Room · Waiting
             </div>
@@ -170,28 +190,33 @@ export default function LobbyPage() {
               {teams.map((t,i) => {
                 const isMe = t.user_id === user?.id
                 return (
-                  <div key={t.id} className="flex items-center gap-4 px-5 py-4 rounded-2xl transition-all anim-1"
+                  <div key={t.id} className="flex items-center gap-4 px-4 sm:px-5 py-4 rounded-2xl transition-all anim-1"
                        style={{background:isMe?'rgba(242,166,35,0.06)':'rgba(255,255,255,0.03)',border:isMe?'0.5px solid rgba(242,166,35,0.3)':'0.5px solid rgba(255,255,255,0.07)',animationDelay:`${i*0.05}s`}}>
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0"
                          style={{background:isMe?'rgba(242,166,35,0.12)':'rgba(255,255,255,0.05)',border:isMe?'1.5px solid rgba(242,166,35,0.4)':'1.5px solid rgba(255,255,255,0.08)'}}>
                       {t.user?.avatar_url||'🦁'}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    
+                    {/* ✅ FIXED UI SECTION: Moved Admin next to Team name, added mr-2 to avoid button overlap */}
+                    <div className="flex-1 min-w-0 mr-2">
                       <div className="font-semibold text-sm flex items-center gap-2">
-                        {t.user?.display_name||'Player'}
-                        {isMe && <span className="text-xs text-gold bg-gold/10 px-2 py-0.5 rounded">You</span>}
-                        {room?.admin_id===t.user_id && <span className="text-xs text-yellow-400">👑 Admin</span>}
+                        <span className="truncate">{t.user?.display_name||'Player'}</span>
+                        {isMe && <span className="text-[10px] text-gold bg-gold/10 px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">You</span>}
                       </div>
-                      <div className="text-gold text-xs mt-0.5">{t.team_name}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-gold text-xs truncate">{t.team_name}</span>
+                        {room?.admin_id===t.user_id && <span className="text-[10px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">👑 Admin</span>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 shrink-0">
                       {isMe ? (
-                        <button onClick={toggleReady} className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        <button onClick={toggleReady} className="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap"
                                 style={{background:t.is_ready?'rgba(76,175,125,0.15)':'rgba(255,255,255,0.06)',color:t.is_ready?'#4CAF7D':'#F2A623',border:`0.5px solid ${t.is_ready?'rgba(76,175,125,0.3)':'rgba(242,166,35,0.3)'}`}}>
                           {t.is_ready?'✓ Ready':'Mark Ready'}
                         </button>
                       ) : (
-                        <span className="text-xs px-3 py-1 rounded-lg font-bold"
+                        <span className="text-xs px-3 sm:px-4 py-1.5 rounded-lg font-bold whitespace-nowrap"
                               style={{background:t.is_ready?'rgba(76,175,125,0.1)':'rgba(255,255,255,0.05)',color:t.is_ready?'#4CAF7D':'#7A7870',border:`0.5px solid ${t.is_ready?'rgba(76,175,125,0.25)':'rgba(255,255,255,0.07)'}`}}>
                           {t.is_ready?'✓ Ready':'Waiting…'}
                         </span>

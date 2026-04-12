@@ -8,7 +8,9 @@ module.exports = (supabase, requireHttpUser) => {
     try {
       const user = await requireHttpUser(req, res)
       if (!user) return
-      const { sport, teamName, settings } = req.body
+      
+      // ✅ FIXED: req.body se roomName ko extract kiya
+      const { sport, teamName, settings, roomName } = req.body
       const code = Math.random().toString(36).substring(2, 8).toUpperCase()
 
       const { data: room, error } = await supabase
@@ -17,6 +19,7 @@ module.exports = (supabase, requireHttpUser) => {
           code,
           sport,
           admin_id: user.id,
+          room_name: roomName, // ✅ FIXED: Database ke room_name column mein save kar rahe hain
           squad_limit: settings?.squadLimit || 25,
           purse_lakhs: settings?.purseLakhs || 12000,
           max_overseas: settings?.maxOverseas || 8,
