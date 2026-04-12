@@ -23,6 +23,13 @@ export default function SetupPage() {
     setProfile(data); navigate('/dashboard')
   }
 
+  // ✅ YEH FUNCTION ADD KIYA HAI - Taki redirect loop na bane
+  const handleLogout = async () => {
+    setLoading(true)
+    await supabase.auth.signOut() // Background session khatam karo
+    navigate('/') // Shanti se Landing Page par bhejo
+  }
+
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-6 py-12 relative">
       <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.08)',top:-200,right:-150}}/>
@@ -48,6 +55,16 @@ export default function SetupPage() {
       </nav>
 
       <div className="relative z-10 w-full max-w-lg mt-16">
+        
+        {/* ✅ BACK BUTTON ADD KIYA HAI */}
+        <button 
+          onClick={handleLogout}
+          disabled={loading}
+          className="inline-flex items-center gap-2 text-[10px] sm:text-xs font-bold tracking-[2px] uppercase text-muted hover:text-gold transition-colors mb-6 anim-1"
+        >
+          <span className="text-lg leading-none">←</span> Back to Landing Page
+        </button>
+
         <div className="text-xs tracking-[3px] uppercase text-gold mb-3 flex items-center gap-3 anim-1">One-time Setup<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/></div>
         <h1 className="font-bebas text-5xl tracking-[3px] mb-1 anim-2">Build Your <span className="text-gold">Identity</span></h1>
         <p className="text-muted text-sm mb-8 anim-3">Choose how you appear in every auction room. You can update this in settings anytime.</p>
