@@ -823,14 +823,39 @@ async function advanceLot(roomCode, roomArg = null) {
       return
     }
 
-    await supabase.from('rooms').update({ status: 'finished' }).eq('code', roomCode)
-    io.to(roomCode).emit('auction:phase', {
-      phase: 'finished',
-      soldCount: state.soldCount,
-      unsoldCount: state.unsoldCount,
-      totalPlayers: state.totalPlayers,
-    })
-    return
+    // End of a round. Check if more unsold players are available for selection.
+    const { count: remainingUnsoldCount, error: countError } = await supabase.from('auction_lots')
+      .select('id', { count: 'exact', head: true })
+      .eq('room_id', room.id)
+      .eq('status', 'unsold')
+      .eq('is_unsold_round', false)
+
+    if (countError) {
+      console.error(`[auction][advance:end-round] Error checking for remaining unsold players room=${roomCode}`, countError)
+    }
+
+    if (remainingUnsoldCount > 0) {
+      // More players are available for another unsold round. Go back to selection.
+      console.log(`[auction][advance:end-round] room=${roomCode} ${remainingUnsoldCount} more unsold players available. Returning to selection.`)
+      await supabase.from('rooms').update({ status: 'unsold_selection' }).eq('code', roomCode)
+      io.to(roomCode).emit('auction:phase', {
+        phase: 'unsold_selection',
+        soldCount: state.soldCount,
+        unsoldCount: state.unsoldCount,
+        totalPlayers: state.totalPlayers,
+      })
+    } else {
+      // No more players to select. Finish the auction.
+      console.log(`[auction][advance:end-round] room=${roomCode} no more unsold players. Finishing auction.`)
+      await supabase.from('rooms').update({ status: 'finished' }).eq('code', roomCode)
+      io.to(roomCode).emit('auction:phase', {
+        phase: 'finished',
+        soldCount: state.soldCount,
+        unsoldCount: state.unsoldCount,
+        totalPlayers: state.totalPlayers,
+      })
+    }
+    return    
   }
 
   const lot = nextPendingLot
