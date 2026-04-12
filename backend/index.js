@@ -261,52 +261,54 @@ async function ensureAuctionState(roomCode, expectedLotId = null) {
   return { ...hydrated, room }
 }
 
+// ✅ New function to check and recover a single room's timer and progression
+async function checkAndRecoverRoom(room) {
+  const roomCode = room.code
+  const state = getState(roomCode)
+  // If paused by admin, being sold, or a timer is already confirmed running, do nothing.
+  if (state.paused || state.selling || state.timerId) return
+
+  const { activeLot, nextPendingLot } = await hydrateAuctionState(roomCode, room)
+
+  if (activeLot) {
+    const remainingSeconds = getRemainingSeconds(activeLot.started_at, AUCTION_TIMER_SECONDS)
+
+    if (remainingSeconds <= 0) {
+      console.log(
+        `[auction][recovery] room=${roomCode} lot=${activeLot.lot_number} timer expired, resolving stalled lot`
+      )
+      if (state.currentBid.teamId) await sellPlayer(roomCode, activeLot)
+      else await markUnsold(roomCode)
+      return
+    }
+
+    // This is the key check: only start a timer if we are sure one isn't running.
+    if (!state.timerId) {
+      console.log(
+        `[auction][recovery] room=${roomCode} lot=${activeLot.lot_number} restarting missing timer with ${remainingSeconds}s left`
+      )
+      startTimer(roomCode, activeLot, { seconds: remainingSeconds, persistStartedAt: false })
+    }
+  } else if (nextPendingLot) {
+    console.log(
+      `[auction][recovery] room=${roomCode} no active lot, advancing to pending lot ${nextPendingLot.lot_number}`
+    )
+    await advanceLot(roomCode, room)
+  }
+}
+
 let recoveryInFlight = false
 async function recoverActiveAuctions() {
   if (recoveryInFlight) return
   recoveryInFlight = true
 
   try {
-    const { data: rooms, error } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('status', 'active')
-
+    const { data: rooms, error } = await supabase.from('rooms').select('*').eq('status', 'active')
     if (error) throw error
     if (!rooms || rooms.length === 0) return
 
     for (const room of rooms) {
-      const roomCode = room.code
-      const { state, activeLot, nextPendingLot } = await hydrateAuctionState(roomCode, room)
-      if (state.paused || state.selling) continue
-
-      if (activeLot) {
-        const remainingSeconds = getRemainingSeconds(activeLot.started_at, AUCTION_TIMER_SECONDS)
-
-        if (remainingSeconds <= 0) {
-          console.log(
-            `[auction][recovery] room=${roomCode} lot=${activeLot.lot_number} timer expired, resolving stalled lot`
-          )
-          if (state.currentBid.teamId) await sellPlayer(roomCode, activeLot)
-          else await markUnsold(roomCode)
-          continue
-        }
-
-        if (!state.timerId) {
-          console.log(
-            `[auction][recovery] room=${roomCode} lot=${activeLot.lot_number} restarting missing timer with ${remainingSeconds}s left`
-          )
-          startTimer(roomCode, activeLot, { seconds: remainingSeconds, persistStartedAt: false })
-        }
-        continue
-      }
-
-      if (nextPendingLot) {
-        console.log(
-          `[auction][recovery] room=${roomCode} no active lot, advancing to pending lot ${nextPendingLot.lot_number}`
-        )
-        await advanceLot(roomCode, room)
-      }
+      await checkAndRecoverRoom(room)
     }
   } catch (error) {
     console.error('[auction][recovery] failed:', error)
@@ -334,29 +336,29 @@ io.on('connection', socket => {
       .eq('room_id', room.id)
     io.to(roomCode).emit('lobby:teams', teams || [])
 
-    // ✅ Rejoin: send current auction state if active
+    // ✅ Rejoin: Send current auction state to the client that just (re)joined.
     if (room.status === 'active') {
       console.log(`[rejoin] Hydrating active room state: ${roomCode}`)
       const { state, activeLot, nextPendingLot } = await hydrateAuctionState(roomCode, room)
 
+      // Always inform the client if the auction is paused.
       if (state.paused) {
         socket.emit('auction:paused')
       }
 
+      // If a player is up for auction, send their details, current bid, and timer.
       if (activeLot) {
         const lot = state.lotQueue[state.lotIdx]
         socket.emit('auction:player_up', { player: lot.player, lot, lotNumber: lot.lot_number, totalLots: state.totalPlayers, basePriceLakhs: lot.base_price_lakhs, soldCount: state.soldCount, unsoldCount: state.unsoldCount })
         socket.emit('auction:bid', { teamId: state.currentBid.teamId, teamName: state.currentBid.teamName, amountLakhs: state.currentBid.amount, timestamp: Date.now() })
         socket.emit('auction:timer', { seconds: state.timerValue })
-
-        if (!state.paused && !state.timerId && !state.selling) {
-          startTimer(roomCode, lot, { seconds: state.timerValue, persistStartedAt: false })
-        }
-      } else if (nextPendingLot && !state.selling) {
-        console.log(`[rejoin] No active lot found for ${roomCode}; resuming from next pending lot`)
-        clearRoomTimer(state)
-        await advanceLot(roomCode, room)
       }
+
+      // After sending the current state, trigger a safe recovery check.
+      // This ensures the auction is not stalled without causing race conditions.
+      checkAndRecoverRoom(room).catch(err => {
+        console.error(`[rejoin][recovery:error] room=${roomCode}`, err)
+      })
     }
   })
 
@@ -713,7 +715,7 @@ async function sellPlayer(roomCode, lot) {
       totalPlayers: state.totalPlayers,
     })
 
-    scheduleAdvanceLot(roomCode, 4000)
+    scheduleAdvanceLot(roomCode, 2000) // Reduced delay from 4s to 2s
   } catch (error) {
     console.error(`[auction][sell:error] room=${roomCode} lot=${lot?.lot_number || 'unknown'}`, error)
     scheduleAdvanceLot(roomCode, 1000)
@@ -756,7 +758,7 @@ async function markUnsold(roomCode) {
       totalPlayers: state.totalPlayers,
     })
 
-    scheduleAdvanceLot(roomCode, 2500)
+    scheduleAdvanceLot(roomCode, 1500) // Reduced delay from 2.5s to 1.5s
   } catch (error) {
     console.error(`[auction][unsold:error] room=${roomCode}`, error)
     scheduleAdvanceLot(roomCode, 1000)
