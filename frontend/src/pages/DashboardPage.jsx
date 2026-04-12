@@ -438,7 +438,7 @@ export default function DashboardPage() {
         {/* FEEDBACK SECTION */}
         <div className="relative z-10 w-full mt-12 sm:mt-16 mb-8 flex flex-col items-center">
           <h3 className="font-bebas text-2xl tracking-[3px] text-gold mb-4 uppercase">Share Your Experience</h3>
-          <div className="w-full max-w-2xl px-4 sm:px-4"> 
+          <div className="w-full max-w-xl px-4 sm:px-4"> 
             {/* ✅ FORM CLASSES CHANGED: items-stretch to items-center */}
             <form onSubmit={handleFeedbackSubmit} className="flex flex-col sm:flex-row items-center gap-3 w-full">
               <input 

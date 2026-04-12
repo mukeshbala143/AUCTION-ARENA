@@ -9,6 +9,44 @@ const ROLES = ['all', 'batsman', 'allrounder', 'bowler', 'wicketkeeper']
 const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'}}
 const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D']
 const MAX_UNSOLD_SELECTIONS = 5
+const CRICKET_ROLE_ORDER = ['batsman', 'bowler', 'wicketkeeper', 'allrounder']
+const CRICKET_ROLE_LABELS = {
+  batsman: 'Batsman',
+  bowler: 'Bowler',
+  wicketkeeper: 'Wicketkeeper',
+  allrounder: 'All-Rounder',
+}
+const CRICKET_ROLE_SHORT_LABELS = {
+  batsman: 'BAT',
+  bowler: 'BWL',
+  wicketkeeper: 'WK',
+  allrounder: 'AR',
+}
+
+function normalizeRole(role) {
+  const rawRole = String(role || '').toLowerCase()
+  if (rawRole === 'wicket_keeper') return 'wicketkeeper'
+  if (rawRole === 'all_rounder') return 'allrounder'
+  return rawRole
+}
+
+function getTeamRoleSummary(picks = []) {
+  const counts = { batsman: 0, bowler: 0, wicketkeeper: 0, allrounder: 0 }
+  const grouped = { batsman: [], bowler: [], wicketkeeper: [], allrounder: [] }
+  const others = []
+
+  for (const pick of picks) {
+    const normalizedRole = normalizeRole(pick?.player?.role)
+    if (grouped[normalizedRole]) {
+      grouped[normalizedRole].push(pick)
+      counts[normalizedRole] += 1
+    } else {
+      others.push(pick)
+    }
+  }
+
+  return { counts, grouped, others }
+}
 
 function getSafePlayerImage(url) {
   if (!url || typeof url !== 'string') return null
@@ -266,6 +304,7 @@ export default function UnsoldPage() {
             const done = doneTeams.includes(t.id)
             const full = t.squad_count >= squadLimit
             const isMe = t.user_id === user?.id
+            const { counts, grouped, others } = getTeamRoleSummary(t.picks || [])
             return (
               <div key={t.id} className="rounded-xl flex-shrink-0 overflow-hidden transition-all duration-300"
                    style={{background: done ? 'rgba(76,175,125,0.08)' : 'rgba(255,255,255,0.02)',
@@ -284,21 +323,69 @@ export default function UnsoldPage() {
                   <span>{t.squad_count}/{squadLimit}</span>
                   <span className="font-mono text-gold">{fmt(t.purse_remaining_lakhs)}</span>
                 </div>
+                <div className="px-3 pb-2 grid grid-cols-2 gap-1">
+                  {CRICKET_ROLE_ORDER.map((role) => {
+                    const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
+                    return (
+                      <div key={role} className="rounded-md px-2 py-1 min-w-0"
+                           style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[8px] font-bold uppercase tracking-[1px] truncate">{CRICKET_ROLE_SHORT_LABELS[role]}</span>
+                          <span className="text-[10px] font-mono font-bold leading-none flex-shrink-0">{counts[role]}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
 
-                <div className={`transition-all duration-300 ease-in-out ${expandedTeam === t.id ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+                <div className={`transition-all duration-300 ease-in-out ${expandedTeam === t.id ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
                   {t.picks && t.picks.length > 0 ? (
-                    <div className="px-3 pb-3 pt-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar" style={{maxHeight:'10rem', background:'rgba(0,0,0,0.15)', borderTop:'0.5px solid rgba(255,255,255,0.03)'}}>
+                    <div className="px-3 pb-3 pt-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar" style={{maxHeight:'15rem', background:'rgba(0,0,0,0.15)', borderTop:'0.5px solid rgba(255,255,255,0.03)'}}>
                       <div className="flex justify-between text-[8px] tracking-widest uppercase text-muted py-1">
                         <span>Squad</span><span>Price</span>
                       </div>
-                      {t.picks.map((pk,pi)=>(
-                        <div key={pi} className="flex flex-col text-[10px] py-1 border-b border-white/5">
-                          <div className="flex items-center justify-between">
-                            <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
-                            <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+                      {CRICKET_ROLE_ORDER.map((role) => {
+                        const rolePicks = grouped[role]
+                        const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
+                        if (!rolePicks.length) return null
+
+                        return (
+                          <div key={role} className="pt-1">
+                            <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
+                                 style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
+                              <span>{CRICKET_ROLE_LABELS[role]}</span>
+                              <span>{rolePicks.length}</span>
+                            </div>
+                            {rolePicks.map((pk, pi) => (
+                              <div key={`${role}-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
+                                <div className="flex items-center justify-between">
+                                  <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
+                                  <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+                                </div>
+                                <span className="text-white/40 capitalize text-[8px] mt-0.5">{CRICKET_ROLE_LABELS[role]}</span>
+                              </div>
+                            ))}
                           </div>
+                        )
+                      })}
+                      {others.length > 0 && (
+                        <div className="pt-1">
+                          <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
+                               style={{background:'rgba(255,255,255,0.05)',color:'#B8B6AE',border:'0.5px solid rgba(255,255,255,0.08)'}}>
+                            <span>Other Roles</span>
+                            <span>{others.length}</span>
+                          </div>
+                          {others.map((pk, pi) => (
+                            <div key={`other-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
+                              <div className="flex items-center justify-between">
+                                <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
+                                <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+                              </div>
+                              <span className="text-white/40 capitalize text-[8px] mt-0.5">{pk.player?.role?.replace('_',' ')}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   ) : (
                     <div className="px-3 py-2 text-[9px] text-muted text-center italic bg-black/20 border-t border-white/5">No players bought</div>

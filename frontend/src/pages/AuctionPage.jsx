@@ -36,6 +36,45 @@ const FLAGS = {'India':'🇮🇳','Australia':'🇦🇺','England':'🏴󠁧󠁢
 const ROLE_COLORS = {batsman:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},bowler:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},allrounder:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},wicketkeeper:{c:'#F07050',bg:'rgba(216,90,48,0.1)',b:'rgba(216,90,48,0.2)'},raider:{c:'#F07050',bg:'rgba(216,90,48,0.12)',b:'rgba(216,90,48,0.25)'},defender:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},st:{c:'#F2A623',bg:'rgba(242,166,35,0.1)',b:'rgba(242,166,35,0.2)'},cm:{c:'#6DCFA0',bg:'rgba(76,175,125,0.1)',b:'rgba(76,175,125,0.2)'},cb:{c:'#8ABCE8',bg:'rgba(100,149,237,0.12)',b:'rgba(100,149,237,0.25)'},gk:{c:'#C99EF5',bg:'rgba(181,124,245,0.1)',b:'rgba(181,124,245,0.2)'}}
 const TEAM_COLORS = ['#F2A623','#D85A30','#4CAF7D','#6495ED','#B57CF5','#4ECDC4','#FF6B6B','#FFE66D','#A8DADC','#F72585']
 
+const CRICKET_ROLE_ORDER = ['batsman', 'bowler', 'wicketkeeper', 'allrounder']
+const CRICKET_ROLE_LABELS = {
+  batsman: 'Batsman',
+  bowler: 'Bowler',
+  wicketkeeper: 'Wicketkeeper',
+  allrounder: 'All-Rounder',
+}
+const CRICKET_ROLE_SHORT_LABELS = {
+  batsman: 'BAT',
+  bowler: 'BWL',
+  wicketkeeper: 'WK',
+  allrounder: 'AR',
+}
+
+function normalizeRole(role) {
+  const rawRole = String(role || '').toLowerCase()
+  if (rawRole === 'wicket_keeper') return 'wicketkeeper'
+  if (rawRole === 'all_rounder') return 'allrounder'
+  return rawRole
+}
+
+function getTeamRoleSummary(picks = []) {
+  const counts = { batsman: 0, bowler: 0, wicketkeeper: 0, allrounder: 0 }
+  const grouped = { batsman: [], bowler: [], wicketkeeper: [], allrounder: [] }
+  const others = []
+
+  for (const pick of picks) {
+    const normalizedRole = normalizeRole(pick?.player?.role)
+    if (grouped[normalizedRole]) {
+      grouped[normalizedRole].push(pick)
+      counts[normalizedRole] += 1
+    } else {
+      others.push(pick)
+    }
+  }
+
+  return { counts, grouped, others }
+}
+
 export default function AuctionPage() {
   const { code } = useParams()
   const navigate = useNavigate()
@@ -68,6 +107,8 @@ export default function AuctionPage() {
   const currentLotNumRef = useRef(0)
   const currentTotalRef = useRef(0)
   const myTeamRef = useRef(null)
+  const lastAuctionSignalAtRef = useRef(Date.now())
+  const resyncInFlightRef = useRef(false)
 
   const isAdmin = room?.admin_id === user?.id || myTeam?.user_id === room?.admin_id && myTeam?.user_id === user?.id
 
@@ -85,6 +126,10 @@ export default function AuctionPage() {
     loadRoom()
     primeAnnouncements()
     const socket = getSocket()
+    const markAuctionSignal = () => {
+      lastAuctionSignalAtRef.current = Date.now()
+      resyncInFlightRef.current = false
+    }
     
     const joinRoom = async () => {
       const token = await getAccessToken()
@@ -95,6 +140,7 @@ export default function AuctionPage() {
     socket.on('connect', joinRoom)
 
     socket.on('auction:player_up', ({ player:p, lot:l, lotNumber, totalLots, basePriceLakhs, soldCount:sc, unsoldCount:uc }) => {
+      markAuctionSignal()
       setPlayer(p); setLot(l); setLotNum(lotNumber); setTotal(totalLots)
       if (sc !== undefined) setSoldCount(sc)
       if (uc !== undefined) setUnsoldCount(uc)
@@ -106,6 +152,7 @@ export default function AuctionPage() {
     })
     
     socket.on('auction:bid', ({ teamId, teamName, amountLakhs }) => {
+      markAuctionSignal()
       setBid({ amount:amountLakhs, teamId }); setLeader(teamName)
       setHistory(prev => [{ teamId, teamName, amountLakhs, time:new Date() }, ...prev].slice(0,10))
       setFlash(true); setTimeout(()=>setFlash(false), 400)
@@ -113,13 +160,18 @@ export default function AuctionPage() {
       else announceBid(teamName, amountLakhs)
     })
     
-    socket.on('auction:timer', ({ seconds }) => setTimer(seconds))
+    socket.on('auction:timer', ({ seconds }) => {
+      markAuctionSignal()
+      setTimer(seconds)
+    })
     socket.on('auction:skip', ({ teamId, skipCount:sc }) => {
+      markAuctionSignal()
       setSkipCount(sc)
       if (teamId && teamId === myTeamRef.current?.id) announceSkip()
     })
     
     socket.on('auction:sold', ({ player:p, winnerTeam, finalPrice:fp, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
+      markAuctionSignal()
       setSoldOverlay({ player:p, team:winnerTeam, price:fp })
       if (sc!==undefined) setSoldCount(sc)
       if (uc!==undefined) setUnsoldCount(uc)
@@ -134,6 +186,7 @@ export default function AuctionPage() {
     })
     
     socket.on('auction:unsold', ({ player:p, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
+      markAuctionSignal()
       announceUnsold(p.name); setSoldOverlay({ player:p, team:null, price:null })
       if (sc!==undefined) setSoldCount(sc)
       if (uc!==undefined) setUnsoldCount(uc)
@@ -141,6 +194,7 @@ export default function AuctionPage() {
     })
     
     socket.on('auction:phase', ({ phase:ph, soldCount:sc, unsoldCount:uc, totalPlayers:tp }) => {
+      markAuctionSignal()
       setPhase(ph)
       if (sc!==undefined) setSoldCount(sc)
       if (uc!==undefined) setUnsoldCount(uc)
@@ -151,10 +205,12 @@ export default function AuctionPage() {
     })
     
     socket.on('auction:paused', () => {
+      markAuctionSignal()
       setPaused(true)
       stopAnnouncements()
     })
     socket.on('auction:resumed', () => {
+      markAuctionSignal()
       setPaused(false)
       if (currentPlayerRef.current && currentLotNumRef.current && currentTotalRef.current) {
         announcePlayer(currentPlayerRef.current, currentLotNumRef.current, currentTotalRef.current)
@@ -176,6 +232,29 @@ export default function AuctionPage() {
       socket.emit('room:leave', { roomCode: code })
     }
   }, [code, user])
+
+  useEffect(() => {
+    if (!room || room.status !== 'active') return
+
+    const intervalId = setInterval(async () => {
+      const isAuctionPlayable = !paused && phase !== 'finished' && phase !== 'unsold_selection'
+      if (!isAuctionPlayable || !currentPlayerRef.current) return
+
+      const staleForMs = Date.now() - lastAuctionSignalAtRef.current
+      if (staleForMs < 20000 || resyncInFlightRef.current) return
+
+      resyncInFlightRef.current = true
+      const token = await getAccessToken()
+      if (!token) {
+        resyncInFlightRef.current = false
+        return
+      }
+
+      getSocket().emit('room:join', { roomCode: code, userId: user?.id, token })
+    }, 5000)
+
+    return () => clearInterval(intervalId)
+  }, [code, paused, phase, room, user])
 
   const loadRoom = async () => {
     const { data } = await supabase.from('rooms')
@@ -365,64 +444,112 @@ export default function AuctionPage() {
     );
   }
 
-  const TeamsList = () => (
-    <div className="flex flex-col gap-2 p-2 pb-6">
-      <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1">Teams</div>
-      {teams.map((t,i)=>{
-        const isLead = leader && t.team_name===leader
-        const isFull = t.squad_count>=(room?.squad_limit||25)
-        const isExpanded = expandedTeam === t.id
-        const tColor = TEAM_COLORS[i%TEAM_COLORS.length]
-        
-        return (
-          <div key={t.id} className="rounded-xl overflow-hidden transition-all duration-300"
-               style={{border:`0.5px solid ${isLead?tColor+'60':'rgba(255,255,255,0.07)'}`,background:isLead?`${tColor}08`:'rgba(255,255,255,0.02)',opacity:isFull?0.6:1}}>
+	  const TeamsList = () => (
+	    <div className="flex flex-col gap-2 p-2 pb-6">
+	      <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1">Teams</div>
+	      {teams.map((t,i)=>{
+	        const isLead = leader && t.team_name===leader
+	        const isFull = t.squad_count>=(room?.squad_limit||25)
+	        const isExpanded = expandedTeam === t.id
+	        const tColor = TEAM_COLORS[i%TEAM_COLORS.length]
+	        const { counts, grouped, others } = getTeamRoleSummary(t.picks || [])
+	        
+	        return (
+	          <div key={t.id} className="rounded-xl overflow-hidden transition-all duration-300"
+	               style={{border:`0.5px solid ${isLead?tColor+'60':'rgba(255,255,255,0.07)'}`,background:isLead?`${tColor}08`:'rgba(255,255,255,0.02)',opacity:isFull?0.6:1}}>
             
             <div 
               className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-white/5 transition-colors"
               onClick={() => setExpandedTeam(isExpanded ? null : t.id)}
             >
               <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:tColor}}/>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <div className="text-sm font-semibold truncate">{t.team_name}</div>
-                  {t.user_id===user?.id && <span className="text-[8px] bg-gold/20 text-gold px-1 py-0.5 rounded font-bold">YOU</span>}
-                </div>
-                <div className="font-mono text-[10px] text-muted flex items-center justify-between mt-0.5">
-                  <span>{fmt(t.purse_remaining_lakhs)} left</span>
-                  <span>{t.squad_count}/{room?.squad_limit||25}</span>
-                </div>
-              </div>
-              
-              <div className="flex flex-col items-center justify-center pl-1">
-                {isLead && <span className="text-[10px] text-gold font-bold mb-0.5 animate-pulse">↑</span>}
-                {t.picks?.length > 0 && (
+	              <div className="flex-1 min-w-0">
+	                <div className="flex items-center gap-1">
+	                  <div className="text-sm font-semibold truncate">{t.team_name}</div>
+	                  {t.user_id===user?.id && <span className="text-[8px] bg-gold/20 text-gold px-1 py-0.5 rounded font-bold">YOU</span>}
+	                </div>
+	                <div className="font-mono text-[10px] text-muted flex items-center justify-between mt-0.5">
+	                  <span>{fmt(t.purse_remaining_lakhs)} left</span>
+	                  <span>{t.squad_count}/{room?.squad_limit||25}</span>
+	                </div>
+	                <div className="grid grid-cols-2 gap-1 mt-2">
+	                  {CRICKET_ROLE_ORDER.map((role) => {
+	                    const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
+	                    return (
+	                      <div key={role} className="rounded-md px-2 py-1 min-w-0"
+	                           style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
+	                        <div className="flex items-center justify-between gap-2">
+	                          <span className="text-[8px] font-bold uppercase tracking-[1px] truncate">{CRICKET_ROLE_SHORT_LABELS[role]}</span>
+	                          <span className="text-[10px] font-mono font-bold leading-none flex-shrink-0">{counts[role]}</span>
+	                        </div>
+	                      </div>
+	                    )
+	                  })}
+	                </div>
+	              </div>
+	              
+	              <div className="flex flex-col items-center justify-center pl-1">
+	                {isLead && <span className="text-[10px] text-gold font-bold mb-0.5 animate-pulse">↑</span>}
+	                {t.picks?.length > 0 && (
                   <span className="text-[10px] text-muted transition-transform duration-300" style={{transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
                 )}
               </div>
-            </div>
+	            </div>
+	
+	            <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+	              {t.picks && t.picks.length>0 && (
+	                <div className="px-3 pb-3 pt-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar" style={{maxHeight:'15rem', background:'rgba(0,0,0,0.2)', borderTop:'0.5px solid rgba(255,255,255,0.03)'}}>
+	                  <div className="flex justify-between text-[8px] tracking-widest uppercase text-muted py-1">
+	                    <span>Squad ({t.picks.length})</span>
+	                    <span>Price</span>
+	                  </div>
+	                  {CRICKET_ROLE_ORDER.map((role) => {
+	                    const rolePicks = grouped[role]
+	                    const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
+	                    if (!rolePicks.length) return null
 
-            <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-              {t.picks && t.picks.length>0 && (
-                <div className="px-3 pb-3 pt-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar" style={{maxHeight:'15rem', background:'rgba(0,0,0,0.2)', borderTop:'0.5px solid rgba(255,255,255,0.03)'}}>
-                  <div className="flex justify-between text-[8px] tracking-widest uppercase text-muted py-1">
-                    <span>Squad ({t.picks.length})</span>
-                    <span>Price</span>
-                  </div>
-                  {t.picks.map((pk,pi)=>(
-                    <div key={pi} className="flex flex-col text-[10px] py-1 border-b border-white/5">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
-                        <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
-                      </div>
-                      <span className="text-white/40 capitalize text-[8px] mt-0.5">{pk.player?.role?.replace('_',' ')}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )
+	                    return (
+	                      <div key={role} className="pt-1">
+	                        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
+	                             style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
+	                          <span>{CRICKET_ROLE_LABELS[role]}</span>
+	                          <span>{rolePicks.length}</span>
+	                        </div>
+	                        {rolePicks.map((pk, pi) => (
+	                          <div key={`${role}-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
+	                            <div className="flex items-center justify-between">
+	                              <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
+	                              <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+	                            </div>
+	                            <span className="text-white/40 capitalize text-[8px] mt-0.5">{CRICKET_ROLE_LABELS[role]}</span>
+	                          </div>
+	                        ))}
+	                      </div>
+	                    )
+	                  })}
+	                  {others.length > 0 && (
+	                    <div className="pt-1">
+	                      <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
+	                           style={{background:'rgba(255,255,255,0.05)',color:'#B8B6AE',border:'0.5px solid rgba(255,255,255,0.08)'}}>
+	                        <span>Other Roles</span>
+	                        <span>{others.length}</span>
+	                      </div>
+	                      {others.map((pk, pi) => (
+	                        <div key={`other-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
+	                          <div className="flex items-center justify-between">
+	                            <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
+	                            <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+	                          </div>
+	                          <span className="text-white/40 capitalize text-[8px] mt-0.5">{pk.player?.role?.replace('_',' ')}</span>
+	                        </div>
+	                      ))}
+	                    </div>
+	                  )}
+	                </div>
+	              )}
+	            </div>
+	          </div>
+	        )
       })}
     </div>
   )
