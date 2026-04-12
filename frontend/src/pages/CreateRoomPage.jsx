@@ -72,16 +72,25 @@ export default function CreateRoomPage() {
             {/* Sport selector */}
             <div className="surface p-5 sm:p-6 anim-3">
               <div className="text-xs tracking-[2px] uppercase text-muted mb-4 flex items-center gap-2">🏟️ Select Sport</div>
-              {/* Responsive grid for sport selection */}
+              
+              {/* ✅ FIXED: Responsive grid for sport selection to prevent overlap */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {SPORTS.map(s=>(
                   <button key={s.id} onClick={()=>s.isEnabled && setSport(s.id)} disabled={!s.isEnabled}
-                          className="relative py-4 sm:py-5 px-4 rounded-xl transition-all text-center flex flex-row sm:flex-col items-center justify-center gap-3 sm:gap-0"
+                          className="relative py-4 sm:py-5 px-5 sm:px-4 rounded-xl transition-all flex flex-row sm:flex-col items-center justify-between sm:justify-center"
                           style={{border:sport===s.id?`0.5px solid ${s.border}`:' 0.5px solid rgba(255,255,255,0.08)',background:sport===s.id?s.glow:'rgba(255,255,255,0.02)',cursor:s.isEnabled?'pointer':'not-allowed',opacity:s.isEnabled?1:0.6}}>
-                    {sport===s.id&&<div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-gold flex items-center justify-center text-bg text-[10px] font-bold">✓</div>}
-                    {!s.isEnabled&&<div className="absolute top-2 right-2 px-2 py-1 rounded-md text-[9px] font-bold tracking-[1px] uppercase" style={{background:'rgba(216,90,48,0.16)',color:'#ffb89f',border:'0.5px solid rgba(216,90,48,0.5)'}}>Coming Soon</div>}
-                    <div className="text-2xl sm:text-3xl sm:mb-2">{s.icon}</div>
-                    <div className="text-xs font-bold" style={{color:sport===s.id?s.color:'#7A7870'}}>{s.label}</div>
+                    
+                    {/* Icon and Label Container */}
+                    <div className="flex flex-row sm:flex-col items-center gap-4 sm:gap-0">
+                      <div className="text-2xl sm:text-3xl sm:mb-2">{s.icon}</div>
+                      <div className="text-xs font-bold" style={{color:sport===s.id?s.color:'#7A7870'}}>{s.label}</div>
+                    </div>
+
+                    {/* Badge Container (Right aligned on mobile, absolute top-right on desktop) */}
+                    <div className="shrink-0 sm:absolute sm:top-2 sm:right-2">
+                      {sport===s.id&&<div className="w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-gold flex items-center justify-center text-bg text-[12px] sm:text-[10px] font-bold">✓</div>}
+                      {!s.isEnabled&&<div className="px-2 py-1.5 sm:py-1 rounded-md text-[9px] font-bold tracking-[1px] uppercase whitespace-nowrap" style={{background:'rgba(216,90,48,0.16)',color:'#ffb89f',border:'0.5px solid rgba(216,90,48,0.5)'}}>Coming Soon</div>}
+                    </div>
                   </button>
                 ))}
               </div>

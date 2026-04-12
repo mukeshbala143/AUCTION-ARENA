@@ -129,13 +129,14 @@ export default function LobbyPage() {
       <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.07)',top:-180,right:-150}}/>
       <div className="orb" style={{width:500,height:500,background:'rgba(76,175,125,0.05)',bottom:'5%',left:-160}}/>
 
-      <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-4 flex items-center justify-between" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
-        <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>
+      {/* ✅ FIXED TOP NAVBAR FOR MOBILE (whitespace-nowrap added to profile badge) */}
+      <nav className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 py-3 sm:py-4 flex items-center justify-between gap-2" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
+        <span className="font-bebas text-xl sm:text-2xl tracking-[2px] sm:tracking-[4px] text-gold shrink-0">AUCTION<span className="text-white"> ARENA</span></span>
         {profile&&(
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
-            <span>{profile.avatar_url||'🦁'}</span>
-            <span className="text-sm font-semibold">{profile.display_name}</span>
-            <span className="text-gold text-xs">· {profile.team_name}</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full whitespace-nowrap shrink-0 max-w-[50vw] sm:max-w-none" style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
+            <span className="shrink-0">{profile.avatar_url||'🦁'}</span>
+            <span className="text-xs sm:text-sm font-semibold truncate">{profile.display_name}</span>
+            <span className="text-gold text-[10px] sm:text-xs shrink-0">· {profile.team_name}</span>
           </div>
         )}
       </nav>
@@ -197,7 +198,6 @@ export default function LobbyPage() {
                       {t.user?.avatar_url||'🦁'}
                     </div>
                     
-                    {/* ✅ FIXED UI SECTION: Moved Admin next to Team name, added mr-2 to avoid button overlap */}
                     <div className="flex-1 min-w-0 mr-2">
                       <div className="font-semibold text-sm flex items-center gap-2">
                         <span className="truncate">{t.user?.display_name||'Player'}</span>
