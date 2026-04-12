@@ -3,8 +3,7 @@ import { SOCKET_BASE_URL } from './config'
 
 let socket = null
 export const getSocket = () => {
-  if (!socket || !socket.connected) {
-    if (socket) { socket.removeAllListeners(); socket.disconnect() }
+  if (!socket) {
     socket = io(SOCKET_BASE_URL,{ withCredentials:true, transports:['websocket'] })
   }
   return socket

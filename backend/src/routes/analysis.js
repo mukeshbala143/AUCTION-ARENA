@@ -1,6 +1,13 @@
 const express = require('express')
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
+const DEFAULT_GEMINI_MODELS = [
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-001',
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash-lite-001',
+]
 
 function safeJsonParse(text, fallback = null) {
   try {
@@ -413,6 +420,39 @@ async function fetchGeminiAnalysis({ apiKey, model, systemPrompt, userPrompt }) 
   return text
 }
 
+function buildGeminiModelCandidates(primaryModel) {
+  return [...new Set([primaryModel, ...DEFAULT_GEMINI_MODELS].filter(Boolean))]
+}
+
+async function fetchGeminiAnalysisWithFallback({ apiKey, model, systemPrompt, userPrompt }) {
+  const candidates = buildGeminiModelCandidates(model)
+  let lastError = null
+
+  for (const candidate of candidates) {
+    try {
+      const content = await fetchGeminiAnalysis({
+        apiKey,
+        model: candidate,
+        systemPrompt,
+        userPrompt,
+      })
+      return { content, model: candidate }
+    } catch (error) {
+      lastError = error
+      console.warn(`[analysis][gemini] model=${candidate} failed: ${error.message}`)
+
+      const isMissingModel =
+        /\b404\b/.test(String(error.message || '')) ||
+        /not found/i.test(String(error.message || '')) ||
+        /not supported/i.test(String(error.message || ''))
+
+      if (!isMissingModel) break
+    }
+  }
+
+  throw lastError || new Error('Gemini request failed for all configured models.')
+}
+
 module.exports = (supabase) => {
   const router = express.Router()
 
@@ -550,20 +590,23 @@ Important: evaluate every picked player in each team. Give higher weight to last
       )}`
 
       const apiKey = process.env.GEMINI_API_KEY
-      const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+      const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite'
 
       let result = fallback
       let generatedBy = 'local-heuristic'
 
       let aiContent = null;
+      let resolvedModel = model
       if (apiKey) {
         try {
-          aiContent = await fetchGeminiAnalysis({
+          const geminiResult = await fetchGeminiAnalysisWithFallback({
             apiKey,
             model,
             systemPrompt,
             userPrompt,
           })
+          aiContent = geminiResult.content
+          resolvedModel = geminiResult.model
         } catch (aiErr) {
           console.error('Gemini analysis failed, using fallback:', aiErr.message)
           // The AI call failed, so we'll proceed with the local fallback.
@@ -575,7 +618,7 @@ Important: evaluate every picked player in each team. Give higher weight to last
       if (aiContent) {
         const parsed = safeJsonParse(aiContent);
         result = normalizeAnalysis(parsed, squads, fallback, room);
-        generatedBy = `gemini:${model}`;
+        generatedBy = `gemini:${resolvedModel}`;
       }
 
       res.json({

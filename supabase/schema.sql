@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.rooms (
   code          TEXT UNIQUE NOT NULL,
   sport         TEXT NOT NULL CHECK (sport IN ('ipl','kabaddi','football')),
   admin_id      UUID REFERENCES public.users(id),
-  status        TEXT DEFAULT 'waiting' CHECK (status IN ('waiting','active','unsold_round','finished')),
+  status        TEXT DEFAULT 'waiting' CHECK (status IN ('waiting','active','paused','unsold_round','unsold_selection','finished')),
   squad_limit   INT  DEFAULT 25,
   purse_lakhs   INT  DEFAULT 12000,
   max_overseas  INT  DEFAULT 8,
@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.room_teams (
   overseas_count         INT  DEFAULT 0,
   squad_count            INT  DEFAULT 0,
   is_ready               BOOLEAN DEFAULT false,
+  unsold_ready           BOOLEAN DEFAULT false,
   joined_at              TIMESTAMPTZ DEFAULT now(),
   UNIQUE(room_id, user_id)
 );
@@ -102,6 +103,15 @@ CREATE TABLE IF NOT EXISTS public.skips (
   UNIQUE(lot_id, team_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.unsold_selections (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id     UUID REFERENCES public.rooms(id) ON DELETE CASCADE,
+  team_id     UUID REFERENCES public.room_teams(id) ON DELETE CASCADE,
+  lot_id      UUID REFERENCES public.auction_lots(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(team_id, lot_id)
+);
+
 -- ── INDEXES ───────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_rooms_code    ON public.rooms(code);
 CREATE INDEX IF NOT EXISTS idx_players_sport ON public.players(sport);
@@ -109,6 +119,8 @@ CREATE INDEX IF NOT EXISTS idx_lots_room     ON public.auction_lots(room_id, sta
 CREATE INDEX IF NOT EXISTS idx_bids_lot      ON public.bids(lot_id);
 CREATE INDEX IF NOT EXISTS idx_picks_team    ON public.squad_picks(room_id, team_id);
 CREATE INDEX IF NOT EXISTS idx_skips_lot     ON public.skips(lot_id);
+CREATE INDEX IF NOT EXISTS idx_unsold_selections_room ON public.unsold_selections(room_id);
+CREATE INDEX IF NOT EXISTS idx_unsold_selections_team ON public.unsold_selections(team_id);
 
 -- ── RLS POLICIES ──────────────────────────────────────────────
 ALTER TABLE public.users        ENABLE ROW LEVEL SECURITY;
@@ -119,6 +131,7 @@ ALTER TABLE public.auction_lots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bids         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.squad_picks  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skips        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.unsold_selections ENABLE ROW LEVEL SECURITY;
 
 -- Users
 CREATE POLICY "users_select" ON public.users FOR SELECT TO authenticated USING (true);
@@ -151,6 +164,54 @@ CREATE POLICY "picks_select" ON public.squad_picks FOR SELECT TO authenticated U
 -- Skips
 CREATE POLICY "skips_select" ON public.skips FOR SELECT TO authenticated USING (true);
 CREATE POLICY "skips_insert" ON public.skips FOR INSERT TO authenticated WITH CHECK (true);
+
+-- Unsold selections
+CREATE POLICY "unsold_selections_select" ON public.unsold_selections
+FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.room_teams rt
+    WHERE rt.id = team_id
+      AND rt.user_id = auth.uid()
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM public.rooms r
+    WHERE r.id = room_id
+      AND r.admin_id = auth.uid()
+  )
+);
+
+CREATE POLICY "unsold_selections_insert" ON public.unsold_selections
+FOR INSERT TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.room_teams rt
+    WHERE rt.id = team_id
+      AND rt.room_id = room_id
+      AND rt.user_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM public.auction_lots al
+    WHERE al.id = lot_id
+      AND al.room_id = room_id
+      AND al.status = 'unsold'
+  )
+);
+
+CREATE POLICY "unsold_selections_delete" ON public.unsold_selections
+FOR DELETE TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.room_teams rt
+    WHERE rt.id = team_id
+      AND rt.user_id = auth.uid()
+  )
+);
 -- ── SEED: IPL PLAYERS ────────────────────────────────────────
 
 INSERT INTO players 

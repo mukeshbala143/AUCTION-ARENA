@@ -99,21 +99,22 @@ export default function UnsoldPage() {
     const joinRoom = async () => {
       const token = await getAccessToken()
       if (!token) return
-      socket.emit('room:join', { roomCode: code, userId: user?.id, token })
+      socket.emit('room:join', { roomCode: code, userId: user?.id, token, page: 'unsold' })
     }
-    joinRoom()
-    socket.on('connect', joinRoom)
+    const handleConnect = () => { joinRoom() }
+    socket.on('connect', handleConnect)
+    if (socket.connected) joinRoom()
 
     socket.on('unsold:team_done', ({ teamId }) => {
       setDoneTeams(prev => [...new Set([...prev, teamId])])
     })
 
     socket.on('unsold:start_auction', () => {
-      navigate(`/auction/${code}`)
+      navigate(`/reauction/${code}`)
     })
 
     return () => {
-      socket.off('connect', joinRoom)
+      socket.off('connect', handleConnect)
       socket.off('unsold:team_done')
       socket.off('unsold:start_auction')
     }
@@ -186,9 +187,10 @@ export default function UnsoldPage() {
       setSelectionError('')
       setSelected(prev => [...prev, lotId])
       const { error } = await supabase.from('unsold_selections')
-        .upsert({ room_id: room.id, team_id: myTeam.id, lot_id: lotId })
+        .insert([{ room_id: room.id, team_id: myTeam.id, lot_id: lotId }])
       if (error) {
         console.error("Error adding selection:", error.message)
+        setSelectionError(error.message)
         setSelected(prev => prev.filter(id => id !== lotId)) // Revert UI on failure
       }
     }
@@ -225,16 +227,10 @@ export default function UnsoldPage() {
 
     if (selectedLotIds.length === 0) {
       await supabase.from('rooms').update({ status: 'finished' }).eq('id', room.id)
-      navigate(`/squads/${code}`)
+      setLoading(false)
+      navigate(`/analysis/${code}`)
       return
     }
-
-    await supabase.from('auction_lots')
-      .update({ status: 'pending', is_unsold_round: true })
-      .in('id', selectedLotIds)
-
-    await supabase.from('room_teams')
-      .update({ unsold_ready: false }).eq('room_id', room.id)
 
     getSocket().emit('unsold:start_auction', { roomCode: code, userId: user?.id, lotIds: selectedLotIds, token })
     setLoading(false)

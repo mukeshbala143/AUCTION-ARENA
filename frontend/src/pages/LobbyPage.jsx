@@ -28,10 +28,11 @@ export default function LobbyPage() {
     const joinRoom = async () => {
       const token = await getAccessToken()
       if (!token) return
-      socket.emit('room:join', { roomCode: code, userId: user?.id, token })
+      socket.emit('room:join', { roomCode: code, userId: user?.id, token, page: 'lobby' })
     }
-    joinRoom()
-    socket.on('connect', joinRoom)
+    const handleConnect = () => { joinRoom() }
+    socket.on('connect', handleConnect)
+    if (socket.connected) joinRoom()
 
     socket.on('lobby:teams', (newTeams) => { setTeams(newTeams); addLog(`🟢 A team joined or left the room`) })
     socket.on('lobby:ready', ({ teamId, isReady }) => {
@@ -40,7 +41,7 @@ export default function LobbyPage() {
     })
     socket.on('auction:started', () => navigate(`/auction/${code}`))
     return () => {
-      socket.off('connect', joinRoom)
+      socket.off('connect', handleConnect)
       socket.off('lobby:teams')
       socket.off('lobby:ready')
       socket.off('auction:started')

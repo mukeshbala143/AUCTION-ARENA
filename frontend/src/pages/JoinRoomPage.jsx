@@ -56,7 +56,7 @@ export default function JoinRoomPage() {
         body: JSON.stringify({ userId: user.id })
       })
       if (res.ok) {
-        if (room.status === 'active') {
+        if (room.status === 'active' || room.status === 'paused') {
           navigate(`/auction/${room.code}`);
         } else if (room.status === 'unsold_selection') {
           navigate(`/unsold/${room.code}`);
@@ -76,7 +76,7 @@ export default function JoinRoomPage() {
 
   const sportIcon = { ipl:'🏏', kabaddi:'🤼', football:'⚽' }
   const sportName = { ipl:'IPL Cricket', kabaddi:'Pro Kabaddi', football:'World Football' }
-  const statusColor = { waiting:'#F2A623', active:'#4CAF7D', finished:'#7A7870' }
+  const statusColor = { waiting:'#F2A623', active:'#4CAF7D', paused:'#4CAF7D', finished:'#7A7870' }
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-6 relative">
@@ -176,12 +176,13 @@ export default function JoinRoomPage() {
                 if (room.status === 'finished') {
                   return <div className="text-center text-muted text-sm py-3">This auction has finished. <Link to={`/squads/${code}`} className="text-gold">View Squads</Link></div>
                 }
-                if (room.status === 'waiting' || room.status === 'active' || room.status === 'unsold_selection') {
+                if (room.status === 'waiting' || room.status === 'active' || room.status === 'paused' || room.status === 'unsold_selection') {
                   const isWaiting = room.status === 'waiting';
+                  const isPaused = room.status === 'paused';
                   const isUnsoldSelect = room.status === 'unsold_selection';
                   return (
                     <button onClick={joinRoom} disabled={loading} className="btn-gold w-full justify-center">
-                      {loading ? 'Joining…' : isWaiting ? 'Join Room & Enter Lobby →' : isUnsoldSelect ? 'Enter Unsold Round →' : 'Rejoin Auction →'}
+                      {loading ? 'Joining…' : isWaiting ? 'Join Room & Enter Lobby →' : isUnsoldSelect ? 'Enter Unsold Round →' : isPaused ? 'Rejoin Paused Auction →' : 'Rejoin Auction →'}
                     </button>
                   )
                 }

@@ -13,6 +13,7 @@ import JoinRoomPage   from './pages/JoinRoomPage'
 import LobbyPage      from './pages/LobbyPage'
 import AuctionPage    from './pages/AuctionPage'
 import UnsoldPage     from './pages/UnsoldPage'
+import ReAuctionPage  from './pages/ReAuctionPage'
 import AdminPage      from './pages/AdminPage'
 import SquadsPage     from './pages/SquadsPage'
 import ExportPage     from './pages/ExportPage'
@@ -120,6 +121,7 @@ export default function App() {
       <Route path="/join"                element={<Guard><JoinRoomPage /></Guard>} />
       <Route path="/lobby/:code"         element={<Guard><LobbyPage /></Guard>} />
       <Route path="/auction/:code"       element={<Guard><AuctionPage /></Guard>} />
+      <Route path="/reauction/:code"     element={<Guard><ReAuctionPage /></Guard>} />
       <Route path="/unsold/:code"        element={<Guard><UnsoldPage /></Guard>} />
       <Route path="/admin"               element={<Guard><AdminPage /></Guard>} />
       <Route path="/squads/:code"        element={<Guard><SquadsPage /></Guard>} />
