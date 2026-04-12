@@ -12,6 +12,7 @@ const SPORTS = [
   { id:'football', icon:'⚽', tag:'World Football', name:'World\nFootball', color:'#4CAF7D', glow:'rgba(76,175,125,0.12)', border:'rgba(76,175,125,0.4)',
     desc:'500+ global superstars from PL, La Liga, Serie A, ISL & beyond. Build your ultimate dream XI.', stats:[['500+','Players'],['€200M','Budget'],['10','Positions']] },
 ]
+
 const FEATS = [
   ['⚡','Server-Side Timer','15s countdown on the server. No desync, no cheating.'],
   ['🎙️','Lady Voice Announcer','Fast female AI voice announces every bid and sale live.'],
@@ -21,6 +22,15 @@ const FEATS = [
   ['🏳️','Overseas Cap Rules','Max 8 overseas enforced live. Auto-disabled when cap is hit.'],
   ['↩️','Unsold Round','All unsold players re-enter. Skip tracking resets entirely.'],
   ['💰','Purse Enforcement','Smart purse tracking — shows Insufficient Funds instantly.'],
+]
+
+// Naya STEPS array "How It Works" section ke liye
+const STEPS = [
+  ['1', 'Create a Room (Host)', 'Sign in and click "Create Room". Choose your sport, set the purse amount, squad limits, and player order.'],
+  ['2', 'Invite Friends', 'Share the unique 6-character room code. Friends can join instantly from the landing page.'],
+  ['3', 'Mark Ready & Start', 'Once all teams are in the lobby and have clicked "Mark Ready", the admin can start the auction.'],
+  ['4', 'Bid to Win', 'Use the bid buttons (+₹25L, +₹50L) to place your bid. If no one bids before the 15s timer runs out, the player is yours!'],
+  ['5', 'Analysis & Export', 'After the unsold round, view your AI squad analysis or download the full auction results as an Excel file.'],
 ]
 
 const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
@@ -170,6 +180,8 @@ export default function LandingPage() {
         <div className="flex items-center gap-4 md:gap-8">
           <a href="#sports" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors hidden sm:block">Arenas</a>
           <a href="#features" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors hidden sm:block">Features</a>
+          {/* ✅ NAYA WORKS LINK */}
+          <a href="#works" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors hidden sm:block">Works</a>
           <Link to="/login" className="btn-gold text-xs px-5 py-2.5 rounded-lg no-underline" style={{padding:'0.6rem 1.4rem',fontSize:'0.78rem'}}>Sign In →</Link>
         </div>
       </nav>
@@ -313,6 +325,23 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ✅ NAYA "HOW IT WORKS" SECTION */}
+      <section id="works" className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-20">
+        <div className="text-xs tracking-[3px] uppercase text-gold flex items-center gap-3 mb-2">The Process<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/></div>
+        <h2 className="font-bebas text-4xl sm:text-5xl tracking-[3px] mb-8 sm:mb-12">How It <span className="text-gold">Works</span></h2>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {STEPS.map(([num, title, desc]) => (
+            <div key={num} className="p-6 rounded-2xl relative overflow-hidden transition-transform duration-300 hover:-translate-y-1" style={{background:'#13131f', border:'0.5px solid rgba(255,255,255,0.05)'}}>
+              <div className="font-bebas text-6xl text-white opacity-[0.03] absolute -top-3 -right-2 select-none">{num}</div>
+              <div className="w-8 h-8 rounded-full bg-gold/10 text-gold flex items-center justify-center font-bold mb-4 border border-gold/20 text-sm">{num}</div>
+              <div className="font-semibold text-sm mb-2 text-white">{title}</div>
+              <div className="text-muted text-xs leading-relaxed">{desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* JOIN BOX */}
       <section className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-16">
         <div className="rounded-3xl p-6 sm:p-8 md:p-16 text-center relative overflow-hidden" style={{background:'#13131f',border:'0.5px solid rgba(242,166,35,0.15)'}}>
@@ -377,6 +406,7 @@ export default function LandingPage() {
         
         {/* Right Side: Links */}
         <div className="flex flex-wrap justify-center gap-4 sm:gap-6 order-2 sm:order-3 w-full sm:w-auto">
+          {/* ✅ Removed Features & How it Works from Footer Links */}
           <button onClick={() => setActiveModal('privacy')} className="text-muted text-xs hover:text-gold transition-colors">Privacy</button>
           <button onClick={() => setActiveModal('terms')} className="text-muted text-xs hover:text-gold transition-colors">Terms</button>
           <button onClick={() => setActiveModal('contact')} className="text-muted text-xs hover:text-gold transition-colors">Contact</button>
