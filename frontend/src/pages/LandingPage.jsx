@@ -427,16 +427,41 @@ export default function LandingPage() {
             {/* PRIVACY POLICY MODAL */}
             {activeModal === 'privacy' && (
               <div>
-                <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">Privacy Policy</h3>
+                <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">🔐 Privacy Policy</h3>
                 <div className="text-muted text-sm space-y-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  <p><strong>Last updated:</strong> April 9, 2026</p>
-                  <p>Your privacy matters to us. This policy explains what information Auction Arena stores and how we use it.</p>
-                  <p><strong>1. What We Collect:</strong> We collect account details required for gameplay, such as display name, team name, avatar, login email, room activity, bids, and squad records.</p>
-                  <p><strong>2. Why We Use It:</strong> Your data is used to run auctions, show live room activity, calculate team stats, generate analysis, and improve app performance.</p>
-                  <p><strong>3. Data Sharing:</strong> We do not sell personal data. Information is only processed by required infrastructure providers (for example authentication/database and contact form delivery).</p>
-                  <p><strong>4. Data Retention:</strong> Auction and profile records may be retained to keep room history, rankings, exports, and analytics available to participating users.</p>
-                  <p><strong>5. Security:</strong> We use standard access controls and protected services, but no internet system can be guaranteed 100% secure.</p>
-                  <p><strong>6. Contact:</strong> For privacy-related questions, use the Contact form in this page.</p>
+                  <p><strong>Effective Date:</strong> April 2026</p>
+                  <p>Welcome to Auction Arena! This Privacy Policy explains how we collect, use, and protect your information when you use our platform. Your privacy is our priority, and we are committed to keeping your data safe.</p>
+
+                  <p><strong>1. Information We Collect</strong><br/>To provide you with the best gameplay experience, we collect the following types of information:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Basic Account Information:</strong> Your display name, username, and email address (collected via secure authentication).</li>
+                    <li><strong>Gameplay Data:</strong> Bids placed, auction participation history, team selections, and general game activity.</li>
+                    <li><strong>Technical Data:</strong> Browser type, device information, and standard web analytics to ensure smooth performance.</li>
+                  </ul>
+
+                  <p><strong>2. How We Use Your Information</strong><br/>The data we collect is strictly used to:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Create and manage your Auction Arena profile.</li>
+                    <li>Facilitate real-time auction gameplay and maintain leaderboards/squads.</li>
+                    <li>Improve platform stability, user experience, and fix technical bugs.</li>
+                    <li>Ensure fair play and monitor for any misuse of the system.</li>
+                  </ul>
+
+                  <p><strong>3. No Payment or Financial Data</strong><br/>Auction Arena is strictly an entertainment and simulation platform. We do not involve real money transactions, nor do we collect, process, or store any payment information, credit card details, or banking data.</p>
+
+                  <p><strong>4. Data Sharing & Protection</strong><br/>We respect your privacy. We do not sell, rent, or trade your personal data to third parties. We may only disclose information if required by law or to protect the safety and security of our platform and its users.</p>
+
+                  <p><strong>5. Cookies</strong><br/>We use minimal cookies and local storage to keep you logged into your session and save your basic preferences. You can choose to disable cookies through your browser settings, though this may affect your ability to stay logged in during an auction.</p>
+
+                  <p><strong>6. Data Security</strong><br/>We implement industry-standard security measures to protect your data from unauthorized access. However, please note that no system transmitting data over the internet can be 100% secure.</p>
+
+                  <p><strong>7. Age Policy</strong><br/>Auction Arena is intended for users aged 13 and older. Users under the age of 18 should use the platform under parental supervision.</p>
+
+                  <p><strong>8. Your Rights</strong><br/>You retain the right to update your profile details or request the deletion of your account and associated data at any time by contacting our support team.</p>
+
+                  <p><strong>9. Changes to This Policy</strong><br/>We reserve the right to update this Privacy Policy as our platform evolves. Any changes will be posted on this page with an updated "Effective Date."</p>
+
+                  <p><strong>10. Contact Us</strong><br/>If you have any questions regarding this policy, please reach out to us at:<br/>📧 Email: <a href="https://mail.google.com/mail/?view=cm&fs=1&to=support.auctionarena@gmail.com" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">support.auctionarena@gmail.com</a></p>
                 </div>
               </div>
             )}
@@ -444,21 +469,57 @@ export default function LandingPage() {
             {/* TERMS & CONDITIONS MODAL */}
             {activeModal === 'terms' && (
               <div>
-                <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">Terms & Conditions</h3>
+                <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-gold mb-4 uppercase">📜 Terms & Conditions</h3>
                 <div className="text-muted text-sm space-y-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  <p><strong>Last updated:</strong> April 9, 2026</p>
-                  <p>By using Auction Arena, you agree to these terms:</p>
-                  <p><strong>1. Fair Use:</strong> Attempting to manipulate bids, exploit bugs, or disrupt live auctions is not allowed.</p>
-                  <p><strong>2. Account Responsibility:</strong> You are responsible for activities performed through your account and for keeping login access secure.</p>
-                  <p><strong>3. Room Conduct:</strong> Hosts and participants must use respectful names/content and avoid abusive or illegal behavior.</p>
-                  <p><strong>4. Service Availability:</strong> Features may change, pause, or be removed as the product evolves.</p>
-                  <p><strong>5. Rankings & Analysis:</strong> AI insights and rankings are informational and can vary based on available squad/player data.</p>
-                  <p><strong>6. Limitation:</strong> The platform is provided "as is" without guarantees of uninterrupted operation.</p>
-                  <p><strong>7. Termination:</strong> We may restrict access for policy violations or harmful activity.</p>
+                  <p><strong>Effective Date:</strong> April 2026</p>
+                  <p>Welcome to Auction Arena. By accessing or using our platform, you agree to be bound by these Terms & Conditions. Please read them carefully.</p>
+
+                  <p><strong>1. Eligibility & Acceptance</strong><br/>By using Auction Arena, you confirm that you are at least 13 years of age and that the information you provide during registration is accurate. Continued use of the platform constitutes your acceptance of these terms.</p>
+
+                  <p><strong>2. Nature of the Platform (No Real Money)</strong><br/>Auction Arena is strictly a simulation and gaming platform designed for entertainment purposes.</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>No real money is wagered, won, or lost on this platform.</li>
+                    <li>All "Purses," "Bids," and "Prices" are virtual and hold zero real-world financial value.</li>
+                  </ul>
+
+                  <p><strong>3. User Accounts & Security</strong><br/>You are responsible for maintaining the confidentiality of your login credentials. You agree not to share your account or use another person’s account. Auction Arena is not liable for any unauthorized activity on your account.</p>
+
+                  <p><strong>4. Gameplay Rules & Fair Play</strong></p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>All auction bids placed within the system are final and cannot be reversed.</li>
+                    <li>Auction results, player allocations, and timer resolutions are governed entirely by the platform's system logic.</li>
+                    <li>Users are expected to maintain fair play and good sportsmanship.</li>
+                  </ul>
+
+                  <p><strong>5. Prohibited Activities</strong><br/>To maintain a healthy environment, users must NOT:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Create fake accounts to manipulate auction outcomes.</li>
+                    <li>Exploit bugs, cheat, or use automated scripts/bots.</li>
+                    <li>Attempt to hack, disrupt, or overload our servers.</li>
+                    <li>Harass, abuse, or spam other users in the lobby or feedback forms.</li>
+                  </ul>
+
+                  <p><strong>6. Platform Rights & Enforcement</strong><br/>We reserve the right to monitor gameplay. If a user violates these terms, we may, at our sole discretion:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Suspend or permanently ban the offending account.</li>
+                    <li>Reset, cancel, or modify active auction rooms.</li>
+                    <li>Update or remove game features without prior notice.</li>
+                  </ul>
+
+                  <p><strong>7. Limitation of Liability</strong><br/>Because Auction Arena is a free-to-play simulation:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>We bear no financial liability for any perceived "losses" in gameplay.</li>
+                    <li>We are not responsible for internet disconnections, device compatibility issues, or temporary server downtimes that may interrupt an active auction.</li>
+                  </ul>
+
+                  <p><strong>8. Termination</strong><br/>We reserve the right to terminate or suspend your access to the platform at any time, for any reason, including violation of these Terms & Conditions.</p>
+
+                  <p><strong>9. Governing Law & Jurisdiction</strong><br/>These terms shall be governed by and interpreted following the laws of India. Any disputes arising from the use of this platform shall be subject to the exclusive jurisdiction of the courts in Gunupur, Odisha.</p>
+
+                  <p><strong>10. Contact Information</strong><br/>For any support requests or questions regarding these terms, contact us:<br/>📧 Email: <a href="https://mail.google.com/mail/?view=cm&fs=1&to=support.auctionarena@gmail.com" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">support.auctionarena@gmail.com</a></p>
                 </div>
               </div>
             )}
-
             {/* CONTACT US MODAL */}
             {activeModal === 'contact' && (
               <div className="flex flex-col md:flex-row gap-6 sm:gap-10">
