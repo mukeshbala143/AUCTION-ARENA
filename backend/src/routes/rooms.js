@@ -9,17 +9,16 @@ module.exports = (supabase, requireHttpUser) => {
       const user = await requireHttpUser(req, res)
       if (!user) return
       
-      // ✅ FIXED: req.body se roomName ko extract kiya
-      const { sport, teamName, settings, roomName } = req.body
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      // ✅ YAHAN FIX HAI: Frontend ke bheje hue EXACT parameters nikal liye
+      const { sport, adminId, teamName, roomName, code, settings } = req.body
 
       const { data: room, error } = await supabase
         .from('rooms')
         .insert({
-          code,
-          sport,
-          admin_id: user.id,
-          room_name: roomName, // ✅ FIXED: Database ke room_name column mein save kar rahe hain
+          code: code, // Frontend ka bheja code use ho raha hai
+          sport: sport,
+          admin_id: adminId || user.id, 
+          room_name: roomName, // Database me room_name save hoga
           squad_limit: settings?.squadLimit || 25,
           purse_lakhs: settings?.purseLakhs || 12000,
           max_overseas: settings?.maxOverseas || 8,
@@ -28,29 +27,37 @@ module.exports = (supabase, requireHttpUser) => {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) throw error;
 
-      await supabase.from('room_teams').insert({
+      const { error: teamError } = await supabase.from('room_teams').insert({
         room_id: room.id,
         user_id: user.id,
-        team_name: teamName,
+        team_name: teamName || 'Host Team',
         purse_remaining_lakhs: settings?.purseLakhs || 12000,
       })
+      
+      if (teamError) throw teamError;
 
       res.json({ room })
+      
     } catch (err) {
-      console.error('Create room error:', err)
-      res.status(500).json({ error: err.message })
+      console.error('Create room fatal error:', err)
+      res.status(500).json({ error: err.message || 'Failed to create room' })
     }
   })
 
   // GET /api/rooms/:code
   router.get('/:code', async (req, res) => {
-    const { data, error } = await supabase.from('rooms')
-      .select('*, admin:users(display_name,team_name,avatar_url), room_teams(*, user:users(display_name,avatar_url))')
-      .eq('code', req.params.code.toUpperCase()).single()
-    if (error) return res.status(404).json({ error: 'Room not found' })
-    res.json(data)
+    try {
+        const { data, error } = await supabase.from('rooms')
+        .select('*, admin:users(display_name,team_name,avatar_url), room_teams(*, user:users(display_name,avatar_url))')
+        .eq('code', req.params.code.toUpperCase()).single()
+        
+        if (error) return res.status(404).json({ error: 'Room not found' })
+        res.json(data)
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
   })
 
   // POST /api/rooms/:code/join
@@ -58,6 +65,7 @@ module.exports = (supabase, requireHttpUser) => {
     try {
       const user = await requireHttpUser(req, res)
       if (!user) return
+      
       const { data: room } = await supabase.from('rooms').select('*').eq('code', req.params.code.toUpperCase()).single()
       if (!room) return res.status(404).json({ error: 'Room not found' })
       if (room.status !== 'waiting') return res.status(400).json({ error: 'Auction already started' })
