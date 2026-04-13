@@ -64,13 +64,8 @@ async function requireHttpUser(req, res) {
     res.status(401).json({ error: 'Unauthorized' })
     return null
   }
-  // Also fetch the user's profile and attach it to the request
-  const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
-
   req.user = user
-  req.profile = profile
-
-  return { user, profile }
+  return user
 }
 
 async function requireSocketUser(token, claimedUserId) {
