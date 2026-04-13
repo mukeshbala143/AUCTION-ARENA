@@ -1,63 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ffffff" />
 
-  <!-- Mobile Responsive -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-  <!-- 🔥 SEO Title (MAIN KEYWORDS HERE) -->
   <title>Auction Arena | Live Cricket Auction Platform | IPL Style Bidding</title>
+  <meta name="title" content="Auction Arena | Live Cricket Auction Platform" />
+  <meta name="description" content="Auction Arena is a live cricket auction platform where users can bid on players, create teams, and enjoy IPL-style auctions with friends. Experience real-time player bidding." />
+  <meta name="keywords" content="auction arena, cricket auction platform, IPL auction app, live cricket auction, player bidding platform, fantasy auction" />
+  <meta name="author" content="Auction Arena" />
+  
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://auctionarena.org/" />
 
-  <!-- 🔥 Favicon -->
-  <link rel="icon" href="/favicon.ico" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="/logo.png" />
-  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/logo.png" />
 
-  <!-- 🔥 SEO Meta Description (KEYWORDS NATURAL WAY) -->
-  <meta name="description" content="Auction Arena is a live cricket auction platform where users can bid on players, create teams, and enjoy IPL-style auctions with friends. Experience real-time player bidding and fantasy auctions.">
+  <meta property="og:site_name" content="Auction Arena" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://auctionarena.org/" />
+  <meta property="og:title" content="Auction Arena | Live Cricket Auction Platform" />
+  <meta property="og:description" content="Join live IPL-style cricket auctions, bid on players in real-time, and build your dream team with Auction Arena." />
+  <meta property="og:image" content="https://auctionarena.org/logo.png" />
 
-  <!-- 🔥 Keywords -->
-  <meta name="keywords" content="auction arena, cricket auction platform, IPL auction app, live cricket auction, player bidding platform, fantasy auction, online sports auction">
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://auctionarena.org/" />
+  <meta name="twitter:title" content="Auction Arena | Live Cricket Auction" />
+  <meta name="twitter:description" content="Experience real-time cricket auctions and build your dream team instantly." />
+  <meta name="twitter:image" content="https://auctionarena.org/logo.png" />
 
-  <meta name="author" content="Auction Arena">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- Robots -->
-  <meta name="robots" content="index, follow">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "name": "Auction Arena",
+          "alternateName": ["AuctionArena", "Auction Arena Live"],
+          "url": "https://www.auctionarena.org/"
+        },
+        {
+          "@type": "Organization",
+          "name": "Auction Arena",
+          "url": "https://www.auctionarena.org/",
+          "logo": "https://www.auctionarena.org/logo.png"
+        }
+      ]
+    }
+  </script>
 
-  <!-- Canonical -->
-  <link rel="canonical" href="https://auctionarena.org/">
-
-  <!-- 🔥 Open Graph (Sharing SEO) -->
-  <meta property="og:title" content="Auction Arena | Live Cricket Auction Platform"/>
-  <meta property="og:description" content="Join live IPL-style cricket auctions, bid on players in real-time, and build your dream team with Auction Arena."/>
-  <meta property="og:url" content="https://auctionarena.org/"/>
-  <meta property="og:type" content="website"/>
-  <meta property="og:image" content="https://auctionarena.org/logo.png"/>
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Auction Arena | Live Cricket Auction">
-  <meta name="twitter:description" content="Experience real-time cricket auctions and build your dream team instantly.">
-  <meta name="twitter:image" content="https://auctionarena.org/logo.png">
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-
+  <style>
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  </style>
 </head>
-
 <body>
 
-  <!-- 🔥 SEO H1 (VERY IMPORTANT FOR GOOGLE) -->
-  <h1 style="display:none;">
-    Auction Arena - Live Cricket Auction Platform for IPL Style Player Bidding
-  </h1>
+  <h1 class="sr-only">Auction Arena - Live Cricket Auction Platform for IPL Style Player Bidding</h1>
 
-  <!-- React Root -->
   <div id="root"></div>
 
-  <!-- Main Script -->
   <script type="module" src="/src/main.jsx"></script>
 
 </body>
