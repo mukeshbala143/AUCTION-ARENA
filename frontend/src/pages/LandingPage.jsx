@@ -277,10 +277,18 @@ export default function LandingPage() {
 
       {/* HERO */}
       <section className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-4 sm:px-6 pt-40 md:pt-48">
+
+        {/* ✅ SEO HIDDEN H1 (VERY IMPORTANT FOR GOOGLE) */}
+        <h1 style={{display:"none"}}>
+          IPL Auction App Cricket Auction Online Fantasy Cricket Auction Game India
+        </h1>
+
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 anim-1 max-w-full text-left sm:text-center"
-             style={{background:'rgba(242,166,35,0.08)',border:'0.5px solid rgba(242,166,35,0.3)'}}>
+            style={{background:'rgba(242,166,35,0.08)',border:'0.5px solid rgba(242,166,35,0.3)'}}>
           <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" style={{animation:'pulse 2s infinite'}}/>
-          <span className="text-gold text-[10px] sm:text-xs tracking-[1px] sm:tracking-[3px] uppercase font-semibold truncate">Real-time Multiplayer · Up to 10 Players · 3 Sports</span>
+          <span className="text-gold text-[10px] sm:text-xs tracking-[1px] sm:tracking-[3px] uppercase font-semibold truncate">
+            Real-time Multiplayer · Up to 10 Players · 3 Sports
+          </span>
         </div>
         
         {/* Responsive Heading */}
@@ -402,6 +410,38 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
+      </section>
+    
+    {/* ✅ SEO CONTENT SECTION (ADSENSE + TRAFFIC BOOST) */}
+      <section className="relative z-10 max-w-5xl mx-auto px-4 md:px-8 pb-20 text-center">
+        
+        <h1 className="font-bebas text-4xl sm:text-5xl tracking-[3px] mb-6 text-gold">
+          IPL Auction App – Play Live Cricket Auction Online
+        </h1>
+
+        <p className="text-muted text-sm sm:text-base leading-relaxed mb-6">
+          Auction Arena is a real-time cricket auction platform where users can experience IPL-style bidding with friends.
+          This online cricket auction game allows you to create your own team, manage your purse, and compete in a live auction environment.
+        </p>
+
+        <h2 className="font-bebas text-2xl sm:text-3xl tracking-[2px] mt-8 mb-3">
+          How to Play Auction
+        </h2>
+
+        <p className="text-muted text-sm leading-relaxed mb-6">
+          Join or create an auction room, get a fixed budget, and bid on players one by one.
+          Use strategy and smart bidding to build your dream cricket team and win against your friends.
+        </p>
+
+        <h2 className="font-bebas text-2xl sm:text-3xl tracking-[2px] mt-8 mb-3">
+          Create Your Dream Team
+        </h2>
+
+        <p className="text-muted text-sm leading-relaxed">
+          Build your ultimate cricket squad with top players from around the world.
+          Auction Arena provides a realistic IPL auction experience where you can compete live and dominate the game.
+        </p>
+
       </section>
 
       {/* ✅ NAYA "HOW IT WORKS" SECTION */}
