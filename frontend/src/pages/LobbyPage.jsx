@@ -346,12 +346,14 @@ export default function LobbyPage() {
                 {/* Start Auction Button */}
                 {isAdmin && !isEditing && (
                   <div className="pt-3">
-                    <button onClick={startAuction} disabled={teams.length < 1}
+                  <button onClick={startAuction} disabled={teams.length < 1 || readyCount < teams.length}
                             className="btn-gold w-full justify-center text-sm" style={{marginTop:'0.5rem'}}>
                       🔨 Start Auction
                     </button>
                     <p className="text-xs text-center text-muted mt-2">
-                      {teams.length < 1 ? 'Need at least 1 team' : `${readyCount}/${teams.length} ready · Can start now`}
+                    {teams.length < 1 ? 'Need at least 1 team to start' 
+                     : readyCount < teams.length ? `${readyCount}/${teams.length} ready · Waiting for all teams`
+                     : 'All teams are ready!'}
                     </p>
                   </div>
                 )}

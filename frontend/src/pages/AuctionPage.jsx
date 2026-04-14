@@ -484,7 +484,7 @@ export default function AuctionPage() {
   const PlayerCard = ({ compact }) => !player ? (
     <div className="flex flex-col items-center justify-center h-48 text-muted">
       <div className="text-4xl mb-3">⏳</div>
-      <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START… <br />Please Wait Auctionn Start with in 1 minute</p>
+      <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START… <br />Please Wait Auction Start with in 1 minute</p>
     </div>
   ) : (
     <div className={`glass ${compact?'p-4':'p-6'} w-full flex flex-col items-center text-center`}>
@@ -730,51 +730,58 @@ export default function AuctionPage() {
 
           {mobileTab==='bid' && (
             <div className="px-4 py-4 flex flex-col gap-3">
-              {player && (
-                <div className="flex items-center gap-3 p-3 rounded-2xl mb-1 anim-1" style={{background:'rgba(255,255,255,0.02)', border:'0.5px solid rgba(255,255,255,0.08)'}}>
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl flex-shrink-0 relative"
-                       style={{background:'linear-gradient(135deg,#1a2535,#2a1a2a)', border:`2px solid ${rc.b}`, boxShadow:`0 0 15px ${rc.bg}`}}>
-                    {player.photo_url && (
-                      <img src={player.photo_url} alt={player.name} className="w-full h-full rounded-full object-cover"
-                           onError={e=>{ e.target.style.display='none'; if(e.target.nextSibling) e.target.nextSibling.style.display='block' }}/>
-                    )}
-                    <span style={{display:player.photo_url?'none':'block'}}>{sportIcon}</span>
-                    <span className="absolute -bottom-1 -right-1 text-[10px]" style={{background:'#13131f',borderRadius:'50%',padding:'2px'}}>{FLAGS[player.country]||'🌍'}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[9px] tracking-[2px] uppercase text-muted mb-0.5">Lot #{lotNum}</div>
-                    <h3 className="font-bebas text-2xl tracking-[2px] leading-none mb-1 truncate text-white">{player.name}</h3>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      <span className="text-[9px] tracking-widest uppercase font-bold px-1.5 py-0.5 rounded" style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>{player.role?.replace('_',' ')}</span>
-                      <span className="text-[9px] tracking-widest uppercase font-bold px-1.5 py-0.5 rounded" style={{background:'rgba(76,175,125,0.08)',color:'#6DCFA0',border:'0.5px solid rgba(76,175,125,0.2)'}}>Base: {fmt(player.base_price_lakhs)}</span>
+              {player ? (
+                <>
+                  <div className="flex items-center gap-3 p-3 rounded-2xl mb-1 anim-1" style={{background:'rgba(255,255,255,0.02)', border:'0.5px solid rgba(255,255,255,0.08)'}}>
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl flex-shrink-0 relative"
+                         style={{background:'linear-gradient(135deg,#1a2535,#2a1a2a)', border:`2px solid ${rc.b}`, boxShadow:`0 0 15px ${rc.bg}`}}>
+                      {player.photo_url && (
+                        <img src={player.photo_url} alt={player.name} className="w-full h-full rounded-full object-cover"
+                             onError={e=>{ e.target.style.display='none'; if(e.target.nextSibling) e.target.nextSibling.style.display='block' }}/>
+                      )}
+                      <span style={{display:player.photo_url?'none':'block'}}>{sportIcon}</span>
+                      <span className="absolute -bottom-1 -right-1 text-[10px]" style={{background:'#13131f',borderRadius:'50%',padding:'2px'}}>{FLAGS[player.country]||'🌍'}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[9px] tracking-[2px] uppercase text-muted mb-0.5">Lot #{lotNum}</div>
+                      <h3 className="font-bebas text-2xl tracking-[2px] leading-none mb-1 truncate text-white">{player.name}</h3>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <span className="text-[9px] tracking-widest uppercase font-bold px-1.5 py-0.5 rounded" style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>{player.role?.replace('_',' ')}</span>
+                        <span className="text-[9px] tracking-widest uppercase font-bold px-1.5 py-0.5 rounded" style={{background:'rgba(76,175,125,0.08)',color:'#6DCFA0',border:'0.5px solid rgba(76,175,125,0.2)'}}>Base: {fmt(player.base_price_lakhs)}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-              <div className="flex items-center gap-3"
-                   style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.08)',borderRadius:14,padding:'12px 16px'}}>
-                <div className="flex-1">
-                  <div className="text-[10px] tracking-[2px] uppercase text-muted mb-0.5">Current Bid</div>
-                  <div className={`font-bebas text-4xl tracking-[2px] text-gold leading-none ${flash?'scale-110':''}`}
-                       style={{textShadow:'0 0 30px rgba(242,166,35,0.5)',transition:'transform 0.2s'}}>{bid?fmt(bid.amount):'—'}</div>
-                  <div className="text-xs text-muted mt-0.5">{leader?<>Led by <span className="text-gold font-semibold">{leader}</span></>:'No bids yet'}</div>
-                </div>
-                <TimerRing sec={timer} small/>
-              </div>
-              <BidButtons/>
-              {history.length>0 && (
-                <div>
-                  <div className="text-[10px] tracking-[2px] uppercase text-muted mb-2">Recent Bids</div>
-                  <div className="space-y-1">
-                    {history.slice(0,5).map((h,i)=>(
-                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg"
-                           style={{background:i===0?'rgba(242,166,35,0.06)':'rgba(255,255,255,0.02)',border:i===0?'0.5px solid rgba(242,166,35,0.15)':'none'}}>
-                        <div className="w-1.5 h-1.5 rounded-full" style={{background:TEAM_COLORS[teams.findIndex(t=>t.id===h.teamId)%TEAM_COLORS.length]||'#888'}}/>
-                        <span className="text-xs flex-1 truncate text-muted">{h.teamName}</span>
-                        <span className="font-mono text-xs text-gold font-bold">{fmt(h.amountLakhs)}</span>
-                      </div>
-                    ))}
+                  <div className="flex items-center gap-3"
+                       style={{background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.08)',borderRadius:14,padding:'12px 16px'}}>
+                    <div className="flex-1">
+                      <div className="text-[10px] tracking-[2px] uppercase text-muted mb-0.5">Current Bid</div>
+                      <div className={`font-bebas text-4xl tracking-[2px] text-gold leading-none ${flash?'scale-110':''}`}
+                           style={{textShadow:'0 0 30px rgba(242,166,35,0.5)',transition:'transform 0.2s'}}>{bid?fmt(bid.amount):'—'}</div>
+                      <div className="text-xs text-muted mt-0.5">{leader?<>Led by <span className="text-gold font-semibold">{leader}</span></>:'No bids yet'}</div>
+                    </div>
+                    <TimerRing sec={timer} small/>
                   </div>
+                  <BidButtons/>
+                  {history.length>0 && (
+                    <div>
+                      <div className="text-[10px] tracking-[2px] uppercase text-muted mb-2">Recent Bids</div>
+                      <div className="space-y-1">
+                        {history.slice(0,5).map((h,i)=>(
+                          <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                               style={{background:i===0?'rgba(242,166,35,0.06)':'rgba(255,255,255,0.02)',border:i===0?'0.5px solid rgba(242,166,35,0.15)':'none'}}>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{background:TEAM_COLORS[teams.findIndex(t=>t.id===h.teamId)%TEAM_COLORS.length]||'#888'}}/>
+                            <span className="text-xs flex-1 truncate text-muted">{h.teamName}</span>
+                            <span className="font-mono text-xs text-gold font-bold">{fmt(h.amountLakhs)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-48 text-muted">
+                  <div className="text-4xl mb-3">⏳</div>
+                  <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START… <br />Please Wait Auction Start with in 1 minute</p>
                 </div>
               )}
             </div>
