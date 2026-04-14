@@ -43,7 +43,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 FRONTEND_URL=http://localhost:5173
 PORT=3001
-ANTHROPIC_API_KEY=sk-ant-your-key
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
 ### Step 4 — Run

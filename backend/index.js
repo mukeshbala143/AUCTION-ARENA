@@ -748,10 +748,8 @@ io.on('connection', socket => {
     }
     io.to(roomCode).emit('auction:resumed')
     if (activeLot) {
-      const remainingSeconds = state.timerValue > 0
-        ? state.timerValue
-        : getRemainingSeconds(activeLot.started_at, AUCTION_TIMER_SECONDS)
-      startTimer(roomCode, activeLot, { seconds: remainingSeconds, persistStartedAt: false })
+      // When resuming, always restart the timer from the full duration.
+      startTimer(roomCode, activeLot)
       return
     }
     if (nextPendingLot) {

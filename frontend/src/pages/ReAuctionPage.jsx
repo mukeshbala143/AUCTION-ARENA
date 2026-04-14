@@ -98,6 +98,8 @@ export default function ReAuctionPage() {
   const [soldOverlay, setSoldOverlay] = useState(null)
   const [flash, setFlash] = useState(false)
   const [skipped, setSkipped] = useState(false)
+  const [isConfirmingSkip, setIsConfirmingSkip] = useState(false)
+  const skipConfirmTimeoutRef = useRef(null)
   const [skipCount, setSkipCount] = useState(0)
   const [paused, setPaused] = useState(false)
   const [showEndConfirm, setShowEndConfirm] = useState(false)
@@ -219,6 +221,7 @@ export default function ReAuctionPage() {
     })
     
     return () => {
+      clearTimeout(skipConfirmTimeoutRef.current)
       stopAnnouncements()
       socket.off('connect', handleConnect)
       socket.off('auction:player_up')
@@ -297,7 +300,7 @@ export default function ReAuctionPage() {
     getSocket().emit('bid:place', { roomCode:code, lotId:lot.id, teamId:myTeam.id, amountLakhs:newAmt, userId:user?.id, token })
   }
   
-  const skipPlayer = async () => {
+  const executeSkip = async () => {
     if (!lot || !myTeam || paused) return
     primeAnnouncements()
     const token = await getAccessToken()
@@ -306,6 +309,19 @@ export default function ReAuctionPage() {
     getSocket().emit('bid:skip', { roomCode:code, lotId:lot.id, teamId:myTeam.id, token })
   }
   
+  const handleSkipClick = () => {
+    if (isConfirmingSkip) {
+      clearTimeout(skipConfirmTimeoutRef.current)
+      executeSkip()
+      setIsConfirmingSkip(false)
+    } else {
+      setIsConfirmingSkip(true)
+      skipConfirmTimeoutRef.current = setTimeout(() => {
+        setIsConfirmingSkip(false)
+      }, 3000) // 3 seconds to confirm
+    }
+  }
+
   const toggleMute = () => {
     primeAnnouncements()
     const m=!muted
@@ -436,10 +452,20 @@ export default function ReAuctionPage() {
         )}
 
         {/* Skip Button */}
-        <button onClick={skipPlayer} disabled={skipped || paused || isLeading}
-                className="w-full py-2.5 rounded-xl text-xs font-semibold text-muted transition-all disabled:opacity-30"
-                style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
-          {skipped?'✓ Skipped':'Skip Player'}{skipCount>0&&<span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}
+        <button onClick={handleSkipClick} disabled={skipped || paused || isLeading}
+                className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-30 ${isConfirmingSkip ? 'text-[#E24B4A]' : 'text-muted'}`}
+                style={{
+                  background: isConfirmingSkip ? 'rgba(226,75,74,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: isConfirmingSkip ? '0.5px solid rgba(226,75,74,0.35)' : '0.5px solid rgba(255,255,255,0.08)',
+                }}
+                onMouseLeave={() => {
+                  if (isConfirmingSkip) {
+                    clearTimeout(skipConfirmTimeoutRef.current)
+                    setIsConfirmingSkip(false)
+                  }
+                }}>
+          {skipped ? '✓ Skipped' : isConfirmingSkip ? 'Confirm Skip?' : 'Skip Player'}
+          {skipCount > 0 && !isConfirmingSkip && <span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}
         </button>
       </div>
     );

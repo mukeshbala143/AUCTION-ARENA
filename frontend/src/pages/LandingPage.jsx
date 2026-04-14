@@ -16,7 +16,7 @@ const SPORTS = [
 const FEATS = [
   ['⚡','Server-Side Timer','15s countdown on the server. No desync, no cheating.'],
   ['🎙️','Lady Voice Announcer','Fast female AI voice announces every bid and sale live.'],
-  ['🤖','ChatGpt AI Analysis','Post-auction squad rankings with strengths, best XI, predictions.'],
+  ['🤖','Gemini AI Analysis','Post-auction squad rankings with strengths, best XI, predictions.'],
   ['📊','Excel Export','Download all squads as .xlsx with full stats. Runs in browser.'],
   ['🔴','Real-Time Bidding','Socket.io powered — rival bids appear instantly with gold flash.'],
   ['🏳️','Overseas Cap Rules','Max 8 overseas enforced live. Auto-disabled when cap is hit.'],

@@ -98,6 +98,8 @@ export default function AuctionPage() {
   const [soldOverlay, setSoldOverlay] = useState(null)
   const [flash, setFlash] = useState(false)
   const [skipped, setSkipped] = useState(false)
+  const [isConfirmingSkip, setIsConfirmingSkip] = useState(false)
+  const skipConfirmTimeoutRef = useRef(null)
   const [skipCount, setSkipCount] = useState(0)
   const [paused, setPaused] = useState(false)
   const [showEndConfirm, setShowEndConfirm] = useState(false)
@@ -224,6 +226,7 @@ export default function AuctionPage() {
     })
 
     return () => {
+      clearTimeout(skipConfirmTimeoutRef.current)
       stopAnnouncements()
       socket.off('connect', handleConnect)
       socket.off('auction:is_unsold_round')
@@ -309,13 +312,26 @@ export default function AuctionPage() {
     getSocket().emit('bid:place', { roomCode:code, lotId:lot.id, teamId:myTeam.id, amountLakhs:newAmt, userId:user?.id, token })
   }
 
-  const skipPlayer = async () => {
+  const executeSkip = async () => {
     if (!lot || !myTeam || paused) return
     primeAnnouncements()
     const token = await getAccessToken()
     if (!token) return
     setSkipped(true)
     getSocket().emit('bid:skip', { roomCode:code, lotId:lot.id, teamId:myTeam.id, token })
+  }
+
+  const handleSkipClick = () => {
+    if (isConfirmingSkip) {
+      clearTimeout(skipConfirmTimeoutRef.current)
+      executeSkip()
+      setIsConfirmingSkip(false)
+    } else {
+      setIsConfirmingSkip(true)
+      skipConfirmTimeoutRef.current = setTimeout(() => {
+        setIsConfirmingSkip(false)
+      }, 3000) // 3 seconds to confirm
+    }
   }
 
   const toggleMute = () => {
@@ -356,7 +372,7 @@ export default function AuctionPage() {
   const PlayerCard = ({ compact }) => !player ? (
     <div className="flex flex-col items-center justify-center h-48 text-muted">
       <div className="text-4xl mb-3">⏳</div>
-      <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START…</p>
+      <p className="font-mono text-xs tracking-widest text-center">WAITING FOR AUCTION TO START… <br />Please Wait Auctionn Start with in 1 minute</p>
     </div>
   ) : (
     <div className={`glass ${compact?'p-4':'p-6'} w-full flex flex-col items-center text-center`}>
@@ -443,10 +459,20 @@ export default function AuctionPage() {
           </button>
         )}
 
-        <button onClick={skipPlayer} disabled={skipped || paused || isLeading}
-                className="w-full py-2.5 rounded-xl text-xs font-semibold text-muted transition-all disabled:opacity-30"
-                style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)'}}>
-          {skipped?'✓ Skipped':'Skip Player'}{skipCount>0&&<span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}
+        <button onClick={handleSkipClick} disabled={skipped || paused || isLeading}
+                className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-30 ${isConfirmingSkip ? 'text-[#E24B4A]' : 'text-muted'}`}
+                style={{
+                  background: isConfirmingSkip ? 'rgba(226,75,74,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: isConfirmingSkip ? '0.5px solid rgba(226,75,74,0.35)' : '0.5px solid rgba(255,255,255,0.08)',
+                }}
+                onMouseLeave={() => {
+                  if (isConfirmingSkip) {
+                    clearTimeout(skipConfirmTimeoutRef.current)
+                    setIsConfirmingSkip(false)
+                  }
+                }}>
+          {skipped ? '✓ Skipped' : isConfirmingSkip ? 'Confirm Skip?' : 'Skip Player'}
+          {skipCount > 0 && !isConfirmingSkip && <span className='ml-2 text-white/40'>{skipCount}/{teams.length}</span>}
         </button>
       </div>
     );
@@ -621,6 +647,24 @@ export default function AuctionPage() {
           <TeamsList/>
         </div>
         <div className="overflow-y-auto flex flex-col items-center justify-start px-6 py-5 custom-scrollbar">
+          {/* Scrolling Banner */}
+          <div className="w-full max-w-[460px] mb-4 overflow-hidden rounded-lg" style={{background:'rgba(216,90,48,0.1)', border:'0.5px solid rgba(216,90,48,0.3)'}}>
+            <div className="inline-flex" style={{ animation: 'marquee 25s linear infinite' }}>
+              <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                ⚠️ Due to heavy traffic, auction will start in 1 minute. Please wait...
+              </span>
+              <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                ⚠️ If Auction temporarily paused due to high traffic. It will resume in less than 1 minute...
+              </span>
+              {/* Duplicate for seamless scroll */}
+              <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                ⚠️ Due to heavy traffic, auction will start in 1 minute. Please wait...
+              </span>
+              <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                ⚠️ If Auction temporarily paused due to high traffic. It will resume in less than 1 minute...
+              </span>
+            </div>
+          </div>
           <div className="w-full max-w-[460px]"><PlayerCard compact={false}/></div>
         </div>
         <div className="overflow-y-auto border-l flex flex-col items-center py-5 px-4 custom-scrollbar"
@@ -653,6 +697,26 @@ export default function AuctionPage() {
 
       <div className="flex md:hidden flex-col flex-1 overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {/* Scrolling Banner - Mobile */}
+          <div className="px-3 pt-3">
+            <div className="w-full overflow-hidden rounded-lg" style={{background:'rgba(216,90,48,0.1)', border:'0.5px solid rgba(216,90,48,0.3)'}}>
+              <div className="inline-flex" style={{ animation: 'marquee 25s linear infinite' }}>
+                <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                  ⚠️ Due to heavy traffic, auction will start in 1 minute. Please wait...
+                </span>
+                <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                  ⚠️ If Auction temporarily paused due to high traffic. It will resume in less than 1 minute...
+                </span>
+                {/* Duplicate for seamless scroll */}
+                <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                  ⚠️ Due to heavy traffic, auction will start in 1 minute. Please wait...
+                </span>
+                <span className="flex-shrink-0 py-1.5 text-xs mx-8 whitespace-nowrap" style={{ color: '#ffb89f' }}>
+                  ⚠️ If Auction temporarily paused due to high traffic. It will resume in less than 1 minute...
+                </span>
+              </div>
+            </div>
+          </div>
           {mobileTab==='player' && <div className="px-3 py-3"><PlayerCard compact={true}/></div>}
 
           {mobileTab==='bid' && (
@@ -815,6 +879,12 @@ export default function AuctionPage() {
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   )
 }
