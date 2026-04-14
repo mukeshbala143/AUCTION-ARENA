@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cashfreepayments/cashfree-js": "^1.0.7",
     "@supabase/supabase-js": "^2.39.0",
     "framer-motion": "^11.0.0",
     "react": "^18.3.0",
