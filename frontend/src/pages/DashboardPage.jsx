@@ -535,6 +535,8 @@ export default function DashboardPage() {
             <span className="text-lg group-hover:scale-125 transition-transform duration-300">❤️</span>
             <span className="text-gold text-xs sm:text-sm tracking-[2px] uppercase font-bold">Donate & Support</span>
           </button>
+          <p className="text-muted text-sm sm:text-base mt-5 mb-8 relative z-10">Donate to help us keep this project alive and bring new updates ❤️</p>
+
         </div>
 
       </div>
