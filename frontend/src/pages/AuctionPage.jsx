@@ -75,6 +75,118 @@ function getTeamRoleSummary(picks = []) {
   return { counts, grouped, others }
 }
 
+function TeamsList({ teams, leader, room, user, expandedTeam, setExpandedTeam }) {
+  return (
+    <div className="flex flex-col gap-2 p-2 pb-6">
+      <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1">Teams</div>
+      {teams.map((t,i)=>{
+        const isLead = leader && t.team_name===leader
+        const isFull = t.squad_count>=(room?.squad_limit||25)
+        const isExpanded = expandedTeam === t.id
+        const tColor = TEAM_COLORS[i%TEAM_COLORS.length]
+        const { counts, grouped, others } = getTeamRoleSummary(t.picks || [])
+
+        return (
+          <div key={t.id} className="rounded-xl overflow-hidden transition-all duration-300"
+               style={{border:`0.5px solid ${isLead?tColor+'60':'rgba(255,255,255,0.07)'}`,background:isLead?`${tColor}08`:'rgba(255,255,255,0.02)',opacity:isFull?0.6:1}}>
+
+            <div
+              className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-white/5 transition-colors"
+              onClick={() => setExpandedTeam(isExpanded ? null : t.id)}
+            >
+              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:tColor}}/>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <div className="text-sm font-semibold truncate">{t.team_name}</div>
+                  {t.user_id===user?.id && <span className="text-[8px] bg-gold/20 text-gold px-1 py-0.5 rounded font-bold">YOU</span>}
+                </div>
+                <div className="font-mono text-[10px] text-muted flex items-center justify-between mt-0.5">
+                  <span>{fmt(t.purse_remaining_lakhs)} left</span>
+                  <span>{t.squad_count}/{room?.squad_limit||25}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 mt-2">
+                  {CRICKET_ROLE_ORDER.map((role) => {
+                    const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
+                    return (
+                      <div key={role} className="rounded-md px-2 py-1 min-w-0"
+                           style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[8px] font-bold uppercase tracking-[1px] truncate">{CRICKET_ROLE_SHORT_LABELS[role]}</span>
+                          <span className="text-[10px] font-mono font-bold leading-none flex-shrink-0">{counts[role]}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center justify-center pl-1">
+                {isLead && <span className="text-[10px] text-gold font-bold mb-0.5 animate-pulse">↑</span>}
+                {t.picks?.length > 0 && (
+                  <span className="text-[10px] text-muted transition-transform duration-300" style={{transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+                )}
+              </div>
+            </div>
+
+            <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'} overflow-y-auto custom-scrollbar`}>
+              {t.picks && t.picks.length>0 && (
+                <div className="px-3 pb-3 pt-1 flex flex-col gap-1" style={{background:'rgba(0,0,0,0.2)', borderTop:'0.5px solid rgba(255,255,255,0.03)'}}>
+                  <div className="flex justify-between text-[8px] tracking-widest uppercase text-muted py-1">
+                    <span>Squad ({t.picks.length})</span>
+                    <span>Price</span>
+                  </div>
+                  {CRICKET_ROLE_ORDER.map((role) => {
+                    const rolePicks = grouped[role]
+                    const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
+                    if (!rolePicks.length) return null
+
+                    return (
+                      <div key={role} className="pt-1">
+                        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
+                             style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
+                          <span>{CRICKET_ROLE_LABELS[role]}</span>
+                          <span>{rolePicks.length}</span>
+                        </div>
+                        {rolePicks.map((pk, pi) => (
+                          <div key={`${role}-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
+                            <div className="flex items-center justify-between">
+                              <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
+                              <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+                            </div>
+                            <span className="text-white/40 capitalize text-[8px] mt-0.5">{CRICKET_ROLE_LABELS[role]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                  {others.length > 0 && (
+                    <div className="pt-1">
+                      <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
+                           style={{background:'rgba(255,255,255,0.05)',color:'#B8B6AE',border:'0.5px solid rgba(255,255,255,0.08)'}}>
+                        <span>Other Roles</span>
+                        <span>{others.length}</span>
+                      </div>
+                      {others.map((pk, pi) => (
+                        <div key={`other-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
+                          <div className="flex items-center justify-between">
+                            <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
+                            <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
+                          </div>
+                          <span className="text-white/40 capitalize text-[8px] mt-0.5">{pk.player?.role?.replace('_',' ')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function AuctionPage() {
   const { code } = useParams()
   const navigate = useNavigate()
@@ -478,116 +590,6 @@ export default function AuctionPage() {
     );
   }
 
-  const TeamsList = () => (
-    <div className="flex flex-col gap-2 p-2 pb-6">
-      <div className="text-[10px] tracking-[2px] uppercase text-muted px-2 py-1">Teams</div>
-      {teams.map((t,i)=>{
-        const isLead = leader && t.team_name===leader
-        const isFull = t.squad_count>=(room?.squad_limit||25)
-        const isExpanded = expandedTeam === t.id
-        const tColor = TEAM_COLORS[i%TEAM_COLORS.length]
-        const { counts, grouped, others } = getTeamRoleSummary(t.picks || [])
-
-        return (
-          <div key={t.id} className="rounded-xl overflow-hidden transition-all duration-300"
-               style={{border:`0.5px solid ${isLead?tColor+'60':'rgba(255,255,255,0.07)'}`,background:isLead?`${tColor}08`:'rgba(255,255,255,0.02)',opacity:isFull?0.6:1}}>
-
-            <div
-              className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-white/5 transition-colors"
-              onClick={() => setExpandedTeam(isExpanded ? null : t.id)}
-            >
-              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:tColor}}/>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <div className="text-sm font-semibold truncate">{t.team_name}</div>
-                  {t.user_id===user?.id && <span className="text-[8px] bg-gold/20 text-gold px-1 py-0.5 rounded font-bold">YOU</span>}
-                </div>
-                <div className="font-mono text-[10px] text-muted flex items-center justify-between mt-0.5">
-                  <span>{fmt(t.purse_remaining_lakhs)} left</span>
-                  <span>{t.squad_count}/{room?.squad_limit||25}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 mt-2">
-                  {CRICKET_ROLE_ORDER.map((role) => {
-                    const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
-                    return (
-                      <div key={role} className="rounded-md px-2 py-1 min-w-0"
-                           style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[8px] font-bold uppercase tracking-[1px] truncate">{CRICKET_ROLE_SHORT_LABELS[role]}</span>
-                          <span className="text-[10px] font-mono font-bold leading-none flex-shrink-0">{counts[role]}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center justify-center pl-1">
-                {isLead && <span className="text-[10px] text-gold font-bold mb-0.5 animate-pulse">↑</span>}
-                {t.picks?.length > 0 && (
-                  <span className="text-[10px] text-muted transition-transform duration-300" style={{transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
-                )}
-              </div>
-            </div>
-
-            <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-              {t.picks && t.picks.length>0 && (
-                <div className="px-3 pb-3 pt-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar" style={{maxHeight:'15rem', background:'rgba(0,0,0,0.2)', borderTop:'0.5px solid rgba(255,255,255,0.03)'}}>
-                  <div className="flex justify-between text-[8px] tracking-widest uppercase text-muted py-1">
-                    <span>Squad ({t.picks.length})</span>
-                    <span>Price</span>
-                  </div>
-                  {CRICKET_ROLE_ORDER.map((role) => {
-                    const rolePicks = grouped[role]
-                    const rc = ROLE_COLORS[role] || ROLE_COLORS.allrounder
-                    if (!rolePicks.length) return null
-
-                    return (
-                      <div key={role} className="pt-1">
-                        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
-                             style={{background:rc.bg,color:rc.c,border:`0.5px solid ${rc.b}`}}>
-                          <span>{CRICKET_ROLE_LABELS[role]}</span>
-                          <span>{rolePicks.length}</span>
-                        </div>
-                        {rolePicks.map((pk, pi) => (
-                          <div key={`${role}-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
-                            <div className="flex items-center justify-between">
-                              <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
-                              <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
-                            </div>
-                            <span className="text-white/40 capitalize text-[8px] mt-0.5">{CRICKET_ROLE_LABELS[role]}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })}
-                  {others.length > 0 && (
-                    <div className="pt-1">
-                      <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[1px] px-2 py-1 rounded-md mb-1"
-                           style={{background:'rgba(255,255,255,0.05)',color:'#B8B6AE',border:'0.5px solid rgba(255,255,255,0.08)'}}>
-                        <span>Other Roles</span>
-                        <span>{others.length}</span>
-                      </div>
-                      {others.map((pk, pi) => (
-                        <div key={`other-${pi}`} className="flex flex-col text-[10px] py-1 border-b border-white/5">
-                          <div className="flex items-center justify-between">
-                            <span className="truncate text-white/90 font-medium">{pk.player?.name}</span>
-                            <span className="text-gold font-mono ml-2 flex-shrink-0">{fmt(pk.price_paid_lakhs)}</span>
-                          </div>
-                          <span className="text-white/40 capitalize text-[8px] mt-0.5">{pk.player?.role?.replace('_',' ')}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-
   return (
     <div className="h-screen bg-bg flex flex-col overflow-hidden relative">
       <div className="orb" style={{width:500,height:500,background:'rgba(242,166,35,0.06)',top:-200,right:-150}}/>
@@ -644,7 +646,14 @@ export default function AuctionPage() {
       <div className="hidden md:grid flex-1 overflow-hidden relative z-10"
            style={{gridTemplateColumns:'210px 1fr 250px'}}>
         <div className="overflow-y-auto border-r custom-scrollbar" style={{borderColor:'rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.2)'}}>
-          <TeamsList/>
+          <TeamsList
+            teams={teams}
+            leader={leader}
+            room={room}
+            user={user}
+            expandedTeam={expandedTeam}
+            setExpandedTeam={setExpandedTeam}
+          />
         </div>
         <div className="overflow-y-auto flex flex-col items-center justify-start px-6 py-5 custom-scrollbar">
           {/* Scrolling Banner */}
@@ -771,7 +780,14 @@ export default function AuctionPage() {
             </div>
           )}
 
-          {mobileTab==='teams' && <TeamsList/>}
+          {mobileTab==='teams' && <TeamsList
+            teams={teams}
+            leader={leader}
+            room={room}
+            user={user}
+            expandedTeam={expandedTeam}
+            setExpandedTeam={setExpandedTeam}
+          />}
         </div>
 
         <div className="flex-shrink-0 flex relative z-20"
