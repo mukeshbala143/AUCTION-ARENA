@@ -845,8 +845,12 @@ export default function AuctionPage() {
           <div className="text-center p-8 rounded-2xl w-full" style={{background:"#13131f",border:"1px solid rgba(216,90,48,0.4)",maxWidth:360}}>
             <div className="text-4xl mb-4">⏹</div>
             <div className="font-bebas text-3xl tracking-[3px] mb-2" style={{color:"#F07050"}}>End Main Auction?</div>
-            <p className="text-muted text-sm mb-6">Remaining players will be marked unsold, proceeding to the Unsold Round selection page.</p>
-            <div className="flex gap-3 justify-center">
+              <p className="text-muted text-sm mb-6">
+                Remaining players will be marked unsold, proceeding to the Unsold Round selection page.
+                <br />
+                <span className="text-red-500 font-bold">Note: Each team can only select 5 players.</span>
+              </p>     
+               <div className="flex gap-3 justify-center">
               <button onClick={()=>setShowEndConfirm(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted" style={{background:"rgba(255,255,255,0.06)",border:"0.5px solid rgba(255,255,255,0.12)"}}>Cancel</button>
               <button onClick={async ()=>{ const token = await getAccessToken(); if (!token) return; setShowEndConfirm(false); getSocket().emit("admin:end_main", {roomCode:code, userId:user?.id, token}) }} className="px-6 py-2.5 rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#D85A30,#993C1D)",color:"#fff"}}>END AUCTION</button>
             </div>
