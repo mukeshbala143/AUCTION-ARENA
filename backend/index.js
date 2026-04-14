@@ -1226,8 +1226,8 @@ app.post('/api/create-order', async (req, res) => {
           customer_phone: '9999999999' // Testing ke liye dummy number
         },
         order_meta: {
-          // Payment ke baad user kahan redirect hoga
-          return_url: 'http://localhost:5173/dashboard?payment=success' 
+          // Automatically live website ka URL utha lega
+          return_url: `${process.env.FRONTEND_URL || 'https://www.auctionarena.org'}/dashboard?payment=success` 
         }
       }
     };
