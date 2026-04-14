@@ -257,7 +257,7 @@ export default function LandingPage() {
       {totalUsers > 0 && (
         <div className="fixed top-20 sm:top-24 md:top-28 right-4 md:right-10 z-40" style={{backdropFilter:'blur(12px)'}}>
           <div className="flex items-center gap-4 rounded-lg p-2.5" style={{background:'rgba(255,255,255,0.04)', border:'0.5px solid rgba(255,255,255,0.08)'}}>
-            <div className="text-center border-r border-white/10 pr-4">
+            <div className="text-center border-r border-white/10 pr-4 hidden">
               <div className="font-mono text-sm text-gold">{totalUsers.toLocaleString()}</div>
               <div className="text-muted text-[10px] uppercase tracking-widest">Users</div>
             </div>
@@ -306,9 +306,6 @@ export default function LandingPage() {
             <span className="text-lg group-hover:scale-125 transition-transform duration-300">❤️</span>
             <span className="text-gold text-xs sm:text-sm tracking-[2px] uppercase font-bold">Donate & Support</span>
           </button>
-          
-          {/* Yahan mt-5 add kiya gaya hai upar space dene ke liye */}
-          <p className="text-muted text-sm sm:text-base mt-5 mb-8 relative z-10">Donate to help us keep this project alive and bring new updates ❤️</p>
         </div>
 
         {/* Fixed Mobile Stats Bar */}
