@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { exchangeCodeForSessionIfPresent } from '../lib/supabase'
 import { API_BASE_URL } from '../lib/config'
 import { useStore } from '../store'
+import { load } from '@cashfreepayments/cashfree-js' // ✅ ADDED: Cashfree SDK
 
 const SPORTS = [
   { id:'ipl', icon:'🏏', tag:'IPL Cricket', name:'Indian Premier\nLeague', color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.4)',
@@ -33,12 +34,25 @@ const STEPS = [
   ['5', 'Analysis & Export', 'After the unsold round, view your AI squad analysis or download the full auction results as an Excel file.'],
 ]
 
+// ✅ DONATION DATA (Removed popular tag)
+const DONATION_TIERS = [
+  { name: 'Supporter', amount: 20, icon: '🌱', color: '#4CAF7D' },
+  { name: 'Backer', amount: 50, icon: '⭐', color: '#F2A623' },
+  { name: 'Pro', amount: 100, icon: '🚀', color: '#60A5FA' },
+  { name: 'Super Supporter', amount: 200, icon: '💜', color: '#A855F7' },
+  { name: 'Champion', amount: 500, icon: '🏆', color: '#FCD34D' },
+  { name: 'Legend', amount: 1000, icon: '🔥', color: '#EF4444' },
+  { name: 'Papa 👤', amount: 5000, icon: '👑', color: '#F2A623' },
+  { name: 'Bhagwan 🙏', amount: 10000, icon: '✨', color: '#FFFFFF' },
+]
+
 const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
 
 export default function LandingPage() {
   const [code, setCode] = useState('')
   const [totalUsers, setTotalUsers] = useState(0)
-  const { setUser, setProfile } = useStore()
+  // ✅ ADDED profile destructuring for payment details
+  const { setUser, setProfile, profile } = useStore()
   const activeUsers = useStore(s => s.activeUsers)
   const navigate = useNavigate()
   const randomActiveUsers = useRef(Math.floor(Math.random() * (179 - 53 + 1)) + 53);
@@ -49,6 +63,9 @@ export default function LandingPage() {
   const [activeModal, setActiveModal] = useState(null)
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   const [showContactThankYou, setShowContactThankYou] = useState(false)
+  
+  // ✅ NEW STATE FOR DONATION AMOUNT
+  const [donationAmount, setDonationAmount] = useState(200)
 
   useEffect(() => {
     let mounted = true
@@ -123,6 +140,57 @@ export default function LandingPage() {
     }
   }
 
+  // ✅ ADDED: Cashfree Payment Logic
+  const handlePayment = async () => {
+    try {
+      // 1. Backend se Payment Session ID mango
+      const res = await fetch('http://localhost:3001/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          amount: donationAmount,
+          name: profile?.display_name || "Supporter",
+          email: profile?.email || "supporter@auctionarena.com"
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.payment_session_id) {
+        // 2. Cashfree SDK load karo (TEST mode me)
+        const cashfree = await load({
+          mode: "sandbox" // 🔴 Jab real payment chahiye ho tab isko "production" kar dena
+        });
+
+        // 3. Checkout Modal open karo
+        let checkoutOptions = {
+          paymentSessionId: data.payment_session_id,
+          redirectTarget: "_modal", // Isse same page par ek sundar popup khulega
+        };
+
+        cashfree.checkout(checkoutOptions).then((result) => {
+          if(result.error){
+              console.log("Payment failed or modal closed", result.error);
+          }
+          if(result.redirect){
+              console.log("Payment will be redirected");
+          }
+          if(result.paymentDetails){
+              console.log("Payment successful!", result.paymentDetails);
+              // Payment success hone par alert dikhao aur modal band karo
+              alert("Thank you so much for your donation! ❤️");
+              setActiveModal(null); 
+          }
+        });
+      } else {
+        alert("Failed to initiate payment. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error starting payment:", error);
+      alert("Something went wrong!");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-bg relative overflow-x-hidden">
       
@@ -180,7 +248,6 @@ export default function LandingPage() {
         <div className="flex items-center gap-4 md:gap-8">
           <a href="#sports" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors hidden sm:block">Arenas</a>
           <a href="#features" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors hidden sm:block">Features</a>
-          {/* ✅ NAYA WORKS LINK */}
           <a href="#works" className="text-muted text-xs tracking-widest uppercase hover:text-gold transition-colors hidden sm:block">Works</a>
           <Link to="/login" className="btn-gold text-xs px-5 py-2.5 rounded-lg no-underline" style={{padding:'0.6rem 1.4rem',fontSize:'0.78rem'}}>Sign In →</Link>
         </div>
@@ -227,6 +294,18 @@ export default function LandingPage() {
         <div className="flex flex-col sm:flex-row gap-4 mt-8 sm:mt-10 w-full sm:w-auto justify-center anim-4 px-4">
           <Link to="/login" className="btn-gold no-underline w-full sm:w-auto justify-center" style={{padding:'0.95rem 2.4rem',fontSize:'0.9rem'}}>Start Auction →</Link>
           <a href="#sports" className="btn-outline w-full sm:w-auto justify-center">Explore Arenas</a>
+        </div>
+
+        {/* ✅ DONATION BUTTON */}
+        <div className="flex flex-col items-center mt-12 w-full anim-4-5 px-4">
+          <button
+            onClick={() => setActiveModal('donate')}
+            className="group flex items-center justify-center gap-3 px-6 py-3 rounded-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(242,166,35,0.2)]"
+            style={{background:'rgba(242,166,35,0.08)', border:'1px solid rgba(242,166,35,0.3)', backdropFilter:'blur(10px)'}}
+          >
+            <span className="text-lg group-hover:scale-125 transition-transform duration-300">❤️</span>
+            <span className="text-gold text-xs sm:text-sm tracking-[2px] uppercase font-bold">Donate & Support</span>
+          </button>
         </div>
 
         {/* Fixed Mobile Stats Bar */}
@@ -406,7 +485,6 @@ export default function LandingPage() {
         
         {/* Right Side: Links */}
         <div className="flex flex-wrap justify-center gap-4 sm:gap-6 order-2 sm:order-3 w-full sm:w-auto">
-          {/* ✅ Removed Features & How it Works from Footer Links */}
           <button onClick={() => setActiveModal('privacy')} className="text-muted text-xs hover:text-gold transition-colors">Privacy</button>
           <button onClick={() => setActiveModal('terms')} className="text-muted text-xs hover:text-gold transition-colors">Terms</button>
           <button onClick={() => setActiveModal('contact')} className="text-muted text-xs hover:text-gold transition-colors">Contact</button>
@@ -424,6 +502,67 @@ export default function LandingPage() {
           >
             <button onClick={() => setActiveModal(null)} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-muted hover:text-white text-2xl leading-none h-9 w-9 grid place-items-center rounded-lg" aria-label="Close modal">&times;</button>
             
+            {/* ✅ DONATE MODAL */}
+            {activeModal === 'donate' && (
+              <div className="w-full max-w-2xl flex flex-col mx-auto">
+                <div className="text-center mb-6 sm:mb-8">
+                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 text-red-500 mb-4 border border-red-500/20 text-2xl animate-pulse">❤️</div>
+                   <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-white uppercase mb-2">Your support means the world</h3>
+                   <p className="text-muted text-xs sm:text-sm max-w-md mx-auto">Even the smallest donation helps us keep Auction Arena free, fast, and improving. Every rupee counts!</p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+                   {DONATION_TIERS.map(tier => {
+                      const isSelected = Number(donationAmount) === tier.amount;
+                      return (
+                      <button key={tier.name}
+                              type="button"
+                              onClick={() => setDonationAmount(tier.amount)}
+                              className={`relative flex flex-col items-center justify-center p-4 rounded-xl transition-all hover:-translate-y-1 group overflow-hidden ${isSelected ? 'shadow-[0_0_15px_rgba(242,166,35,0.3)]' : ''}`}
+                              style={{
+                                background: isSelected ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)', 
+                                border: `1px solid ${isSelected ? '#F2A623' : 'rgba(255,255,255,0.08)'}`
+                              }}>
+                        
+                        <span className="text-2xl mb-2 group-hover:scale-110 transition-transform">{tier.icon}</span>
+                        <span className="text-white text-[11px] sm:text-xs font-semibold mb-1 tracking-wider text-center">{tier.name}</span>
+                        <span className="font-mono text-xs" style={{color: tier.color}}>₹{tier.amount}</span>
+                      </button>
+                   )})}
+                </div>
+
+                <div className="space-y-4 max-w-md mx-auto w-full">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-[2px] text-muted mb-2 text-center">Your Name</label>
+                    <input type="text" placeholder="e.g. Auction Arena" className="w-full px-4 py-3 rounded-xl text-sm text-center text-white outline-none focus:border-gold transition-colors" style={{background:'#161622', border:'1px solid rgba(255,255,255,0.08)'}} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-[2px] text-muted mb-2 text-center">Custom Amount (₹20 min)</label>
+                    <div className="relative">
+                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gold font-mono">₹</span>
+                       <input 
+                         type="number" 
+                         value={donationAmount}
+                         onChange={(e) => setDonationAmount(e.target.value)}
+                         min="20" 
+                         className="w-full pl-8 pr-4 py-3 rounded-xl text-sm text-center text-white outline-none focus:border-gold transition-colors font-mono" 
+                         style={{background:'#161622', border:'1px solid rgba(255,255,255,0.08)'}} 
+                       />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={handlePayment} 
+                    className="w-full py-4 rounded-xl text-xs sm:text-sm font-bold tracking-[2px] uppercase transition-all hover:brightness-110 mt-4 text-black bg-white shadow-lg"
+                  >
+                     Donate ₹{donationAmount} via Cashfree
+                  </button>
+                  <p className="text-center text-[10px] text-muted tracking-widest uppercase mt-2">Powered by Cashfree · Secure & encrypted</p>
+                </div>
+              </div>
+            )}
+
             {/* PRIVACY POLICY MODAL */}
             {activeModal === 'privacy' && (
               <div>

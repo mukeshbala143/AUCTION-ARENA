@@ -3,6 +3,7 @@ const express  = require('express')
 const http     = require('http')
 const { Server } = require('socket.io')
 const cors     = require('cors')
+const axios    = require('axios') // ✅ ADDED: For Cashfree Payment requests
 const { createClient } = require('@supabase/supabase-js')
 const app    = express()
 const server = http.createServer(app)
@@ -1193,5 +1194,54 @@ process.on('unhandledRejection', (error) => {
 process.on('uncaughtException', (error) => {
   console.error('[process] uncaughtException:', error)
 })
+
+// ==========================================
+// ✅ ADDED: Cashfree Payment Route
+// ==========================================
+app.post('/api/create-order', async (req, res) => {
+  try {
+    const { amount, name, email } = req.body;
+    
+    // Unique order ID har payment ke liye
+    const orderId = 'ORDER_' + Date.now(); 
+
+    const options = {
+      method: 'POST',
+      url: 'https://sandbox.cashfree.com/pg/orders', // TEST API URL
+      headers: {
+        'accept': 'application/json',
+        'x-client-id': process.env.CASHFREE_APP_ID,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+        'x-api-version': '2023-08-01',
+        'content-type': 'application/json'
+      },
+      data: {
+        order_amount: amount,
+        order_currency: 'INR',
+        order_id: orderId,
+        customer_details: {
+          customer_id: 'CUST_' + Date.now(),
+          customer_name: name || 'Anonymous Supporter',
+          customer_email: email || 'support@auctionarena.com',
+          customer_phone: '9999999999' // Testing ke liye dummy number
+        },
+        order_meta: {
+          // Payment ke baad user kahan redirect hoga
+          return_url: 'http://localhost:5173/dashboard?payment=success' 
+        }
+      }
+    };
+
+    // Cashfree ko request bhejo
+    const response = await axios.request(options);
+    
+    // Frontend ko session_id wapas bhejo
+    res.json({ payment_session_id: response.data.payment_session_id });
+
+  } catch (error) {
+    console.error("Cashfree Error:", error.response ? error.response.data : error.message);
+    res.status(500).json({ error: 'Payment initiation failed' });
+  }
+});
 
 server.listen(PORT, () => console.log(`🚀 Auction Arena backend on port ${PORT}`))

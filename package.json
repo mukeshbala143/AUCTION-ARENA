@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@cashfreepayments/cashfree-js": "^1.0.7",
     "@supabase/supabase-js": "^2.103.0"
   }
 }
