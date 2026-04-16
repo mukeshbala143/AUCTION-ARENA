@@ -16,7 +16,7 @@
   <!-- Description -->
   <meta name="description" content="Auction Arena is a cricket auction game where you can play auction with friends online. Experience real-time bidding, multiplayer gameplay, and IPL-style auction simulation for free." />
 
-  <!-- Keywords (optional) -->
+  <!-- Keywords -->
   <meta name="keywords" content="cricket auction game, auction game online, IPL style auction, auction simulator, multiplayer auction game, Auction Arena" />
 
   <meta name="author" content="Auction Arena" />
@@ -70,8 +70,8 @@
   <!-- React App -->
   <div id="root"></div>
 
-  <!-- SEO Content (Footer Line Style) -->
-  <div style="
+  <!-- SEO Content -->
+  <div id="seo-footer" style="
     text-align:center;
     font-size:13px;
     color:#aaa;
@@ -83,7 +83,7 @@
   </div>
 
   <!-- Legal Line -->
-  <div style="
+  <div id="seo-legal" style="
     text-align:center;
     font-size:11px;
     color:#666;
@@ -91,6 +91,31 @@
   ">
     This website is not affiliated with or endorsed by the Indian Premier League (IPL).
   </div>
+
+  <!-- 🔥 SHOW ONLY ON LANDING PAGE -->
+  <script>
+    function checkPath() {
+      const path = window.location.pathname;
+
+      const show = path === "/" || path === "";
+
+      document.getElementById("seo-footer").style.display = show ? "block" : "none";
+      document.getElementById("seo-legal").style.display = show ? "block" : "none";
+    }
+
+    // Run on first load
+    checkPath();
+
+    // Handle SPA navigation (React Router)
+    window.addEventListener("popstate", checkPath);
+
+    // Extra fix for pushState navigation
+    const pushState = history.pushState;
+    history.pushState = function () {
+      pushState.apply(history, arguments);
+      checkPath();
+    };
+  </script>
 
   <script type="module" src="/src/main.jsx"></script>
 
