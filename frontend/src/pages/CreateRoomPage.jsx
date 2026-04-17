@@ -111,7 +111,7 @@ export default function CreateRoomPage() {
                     <label className="text-xs uppercase tracking-widest text-muted">Purse per Team</label>
                     <span className="font-mono text-gold font-bold text-sm">₹{purse} Cr</span>
                   </div>
-                  <input type="range" className="w-full accent-gold" min={50} max={200} step={5} value={purse} onChange={e=>setPurse(+e.target.value)}/>
+                  <input type="range" className="w-full accent-gold" min={50} max={150} step={5} value={purse} onChange={e=>setPurse(+e.target.value)}/>
                   <div className="flex justify-between text-xs text-muted mt-1"><span>₹50 Cr</span><span>₹200 Cr</span></div>
                 </div>
               </div>
