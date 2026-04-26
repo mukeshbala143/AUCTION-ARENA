@@ -286,15 +286,17 @@ export default function LandingPage() {
           <a href="#sports" className="btn-outline w-full sm:w-auto justify-center">Explore arenas</a>
         </div>
 
-        <div className="flex flex-col items-center mt-12 w-full anim-4-5 px-4">
+        <div className="relative z-10 flex flex-col items-center mt-6 mb-8 w-full px-4">
           <button
             onClick={() => setActiveModal('donate')}
-            className="group flex items-center justify-center gap-3 px-6 py-3 rounded-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(255,90,0,0.2)]"
-            style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.1)', backdropFilter:'blur(10px)'}}
+            className="group flex items-center justify-center gap-3 px-6 py-3 rounded-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(242,166,35,0.2)]"
+            style={{background:'rgba(242,166,35,0.08)', border:'1px solid rgba(242,166,35,0.3)', backdropFilter:'blur(10px)'}}
           >
-            <span className="text-lg group-hover:scale-125 transition-transform duration-300">🔥</span>
-            <span className="text-white text-xs sm:text-sm font-semibold">Support the project</span>
+            <span className="text-lg group-hover:scale-125 transition-transform duration-300">❤️</span>
+            <span className="text-white text-xs sm:text-sm tracking-[2px] uppercase font-bold">Donate & Support</span>
           </button>
+          <p className="text-muted text-sm sm:text-base mt-5 mb-8 relative z-10">Donate to help us keep this project alive and bring new updates ❤️</p>
+
         </div>
 
         <div className="mt-20 w-full max-w-5xl mx-auto anim-5 px-4 pb-20">
