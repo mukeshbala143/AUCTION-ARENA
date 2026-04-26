@@ -127,8 +127,7 @@ export default function LobbyPage() {
 
   return (
     <div className="min-h-screen bg-bg relative">
-      <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.07)',top:-180,right:-150}}/>
-      <div className="orb" style={{width:500,height:500,background:'rgba(76,175,125,0.05)',bottom:'5%',left:-160}}/>
+     
 
       {/* ✅ FIXED TOP NAVBAR FOR MOBILE (whitespace-nowrap added to profile badge) */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 py-3 sm:py-4 flex items-center justify-between gap-2" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
@@ -251,7 +250,7 @@ export default function LobbyPage() {
 
           {/* RIGHT: ADMIN + ACTIVITY */}
           <div className="space-y-4">
-            <div className="gold-card overflow-hidden anim-2">
+            <div className="gold-card overflow-hidden anim-2" style={{border: '0.5px solid rgba(242,166,35,0.2)'}}>
               
               {/* Header with Edit Button */}
               <div className="px-5 py-4 flex items-center justify-between" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)', background:'rgba(255,255,255,0.02)'}}>
@@ -343,17 +342,27 @@ export default function LobbyPage() {
                   </div>
                 )}
 
-                {/* Start Auction Button */}
+                {/* ✅ UPDATED BUTTON: Exact Gold Color & Glowing Effect */}
                 {isAdmin && !isEditing && (
                   <div className="pt-3">
-                  <button onClick={startAuction} disabled={teams.length < 1 || readyCount < teams.length}
-                            className="btn-gold w-full justify-center text-sm" style={{marginTop:'0.5rem'}}>
+                    <button 
+                      onClick={startAuction} 
+                      disabled={teams.length < 1 || readyCount < teams.length}
+                      className="w-full flex items-center justify-center py-3.5 rounded-lg text-sm font-bold tracking-[1px] uppercase transition-all hover:-translate-y-1 disabled:opacity-50 disabled:transform-none"
+                      style={{ 
+                        background: '#F2A623', 
+                        color: '#07070e', 
+                        boxShadow: '0 0 20px rgba(242, 166, 35, 0.3)',
+                        border: 'none',
+                        marginTop:'0.5rem'
+                      }}
+                    >
                       🔨 Start Auction
                     </button>
-                    <p className="text-xs text-center text-muted mt-2">
-                    {teams.length < 1 ? 'Need at least 1 team to start' 
-                     : readyCount < teams.length ? `${readyCount}/${teams.length} ready · Waiting for all teams`
-                     : 'All teams are ready!'}
+                    <p className="text-xs text-center text-muted mt-3 font-medium">
+                      {teams.length < 1 ? 'Need at least 1 team to start' 
+                       : readyCount < teams.length ? `${readyCount}/${teams.length} ready · Waiting for all teams`
+                       : 'All teams are ready!'}
                     </p>
                   </div>
                 )}
@@ -361,7 +370,7 @@ export default function LobbyPage() {
             </div>
 
             {/* Room Activity Log */}
-            <div className="surface overflow-hidden anim-3">
+            <div className="surface overflow-hidden anim-3" style={{border: '0.5px solid rgba(255,255,255,0.07)'}}>
               <div className="px-4 py-3 text-xs tracking-[2px] uppercase text-muted" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>Room Activity</div>
               <div className="p-3 space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar">
                 {activity.length===0&&<p className="text-xs text-muted text-center py-4">No activity yet</p>}

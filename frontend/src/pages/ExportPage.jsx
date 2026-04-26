@@ -85,7 +85,6 @@ export default function ExportPage() {
 
   return (
     <div className="min-h-screen bg-bg relative">
-      <div className="orb" style={{width:500,height:500,background:'rgba(76,175,125,0.07)',top:-200,right:-150}}/>
 
       <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-4 flex items-center justify-between" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
         <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>

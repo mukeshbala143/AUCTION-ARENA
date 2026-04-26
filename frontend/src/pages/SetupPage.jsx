@@ -32,8 +32,7 @@ export default function SetupPage() {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-6 py-12 relative">
-      <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.08)',top:-200,right:-150}}/>
-      <div className="orb" style={{width:500,height:500,background:'rgba(76,175,125,0.05)',bottom:-100,left:-160}}/>
+      
       {/* Progress */}
       <div className="fixed top-0 left-0 right-0 h-1 z-50" style={{background:'rgba(255,255,255,0.05)'}}>
         <div className="h-full transition-all duration-500" style={{width:valid?'75%':'35%',background:'linear-gradient(90deg,#BA7517,#F2A623)'}}/>

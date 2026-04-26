@@ -80,8 +80,7 @@ export default function JoinRoomPage() {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-6 relative">
-      <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.08)',top:-200,right:-150}}/>
-      <div className="orb" style={{width:500,height:500,background:'rgba(76,175,125,0.05)',bottom:-100,left:-180}}/>
+     
 
       <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-4 flex items-center justify-between" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
         <span className="font-bebas text-2xl tracking-[4px] text-gold">AUCTION<span className="text-white"> ARENA</span></span>

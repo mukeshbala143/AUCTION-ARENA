@@ -265,7 +265,6 @@ export default function UnsoldPage() {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col" style={{maxWidth:"100vw",overflowX:"hidden"}}>
-      <div className="orb" style={{width:500,height:500,background:'rgba(216,90,48,0.06)',top:-200,right:-150}}/>
 
       {/* TOP BAR */}
       <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 relative z-10 flex-wrap"

@@ -309,8 +309,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.07)',top:-180,right:-150}}/>
-      <div className="orb" style={{width:500,height:500,background:'rgba(216,90,48,0.05)',bottom:'5%',left:-160}}/>
+      
 
       {/* NAV */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 md:px-8 py-3 sm:py-4 flex items-center justify-between gap-2" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>

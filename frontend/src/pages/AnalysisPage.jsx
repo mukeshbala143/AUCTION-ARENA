@@ -134,7 +134,6 @@ export default function AnalysisPage() {
 
   return (
     <div className="min-h-screen bg-bg relative">
-      <div className="orb" style={{width:600,height:600,background:'rgba(76,175,125,0.08)',top:-200,right:-150}}/>
       {phase==='results'&&<Confetti/>}
 
       <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-4 flex items-center justify-between" style={{background:'rgba(7,7,14,0.85)',backdropFilter:'blur(24px)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>

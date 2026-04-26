@@ -592,7 +592,6 @@ export default function AuctionPage() {
 
   return (
     <div className="h-screen bg-bg flex flex-col overflow-hidden relative">
-      <div className="orb" style={{width:500,height:500,background:'rgba(242,166,35,0.06)',top:-200,right:-150}}/>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-y-2 px-3 py-2 flex-shrink-0 relative z-10"
            style={{background:'rgba(7,7,14,0.95)',borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>

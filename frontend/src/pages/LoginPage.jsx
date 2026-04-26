@@ -42,22 +42,20 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-bg flex relative">
-      <div className="orb" style={{width:600,height:600,background:'rgba(242,166,35,0.09)',top:-200,right:-150}}/>
-      <div className="orb" style={{width:500,height:500,background:'rgba(216,90,48,0.07)',bottom:-120,left:-150}}/>
 
       {/* LEFT PANEL */}
       <div className="hidden lg:flex flex-col justify-between flex-1 p-12 relative overflow-hidden" style={{borderRight:'0.5px solid rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.2)'}}>
-        <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 80% 20%,rgba(242,166,35,0.07),transparent 60%)'}}/>
-        <Link to="/" className="font-bebas text-2xl tracking-[4px] text-gold no-underline relative z-10">AUCTION<span className="text-white"> ARENA</span></Link>
+        <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 80% 20%,rgba(139,92,246,0.07),transparent 60%)'}}/>
+        <Link to="/" className="font-bebas text-2xl tracking-[4px] text-[#8B5CF6] no-underline relative z-10">AUCTION<span className="text-white"> ARENA</span></Link>
         <div className="relative z-10">
           <h1 className="font-bebas leading-none mb-6" style={{fontSize:'clamp(4rem,7vw,6rem)',letterSpacing:'4px'}}>
-            BID.<br/><span className="text-gold">WIN.</span><br/>
-            <span style={{WebkitTextStroke:'1.5px rgba(242,166,35,0.5)',color:'transparent'}}>DOMINATE.</span>
+            BID.<br/><span className="text-[#8B5CF6]">WIN.</span><br/>
+            <span style={{WebkitTextStroke:'1.5px rgba(139,92,246,0.5)',color:'transparent'}}>DOMINATE.</span>
           </h1>
           <p className="text-muted text-base leading-relaxed max-w-sm mb-8">Real-time IPL-style auctions. Voice announced. AI ranked. Built for serious fantasy players.</p>
           <div className="flex gap-2 flex-wrap mb-8">
             {['🏏 IPL Cricket','🤼 Kabaddi','⚽ Football'].map(s=>(
-              <span key={s} className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{background:'rgba(242,166,35,0.08)',color:'#F2A623',border:'0.5px solid rgba(242,166,35,0.2)'}}>{s}</span>
+              <span key={s} className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{background:'rgba(139,92,246,0.08)',color:'#8B5CF6',border:'0.5px solid rgba(139,92,246,0.2)'}}>{s}</span>
             ))}
           </div>
           {/* Features */}
@@ -71,7 +69,7 @@ export default function LoginPage() {
           {/* Live ticker */}
           <div className="overflow-hidden rounded-xl" style={{border:'0.5px solid rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.3)'}}>
             <div className="px-4 py-2 text-xs text-muted flex items-center gap-2" style={{borderBottom:'0.5px solid rgba(255,255,255,0.07)'}}>
-              <span className="w-2 h-2 rounded-full bg-emerald" style={{animation:'pulse 2s infinite'}}/>Live Auction Results
+              <span className="w-2 h-2 rounded-full bg-violet-400" style={{animation:'pulse 2s infinite'}}/>Live Auction Results
             </div>
             <div className="overflow-hidden py-2">
               <div className="flex gap-10 whitespace-nowrap px-4" style={{animation:'tickerMove 20s linear infinite'}}>
@@ -80,16 +78,16 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-        <p className="text-xs text-muted relative z-10">By signing in you agree to our <a href="#" className="text-gold no-underline">Terms</a></p>
+        <p className="text-xs text-muted relative z-10">By signing in you agree to our <a href="#" className="text-[#8B5CF6] no-underline">Terms</a></p>
       </div>
 
-      {/* RIGHT PANEL */}
+      {/* RIGHT PANEL - EXACT ORIGINAL LAYOUT WITH PURPLE COLOR */}
       <div className="flex-1 flex items-center justify-center p-8 relative z-10">
         <div className="w-full max-w-md anim-1">
-          <div className="text-xs tracking-[3px] uppercase text-gold mb-6 flex items-center gap-3">
-            Welcome Back<div className="flex-1 h-px" style={{background:'rgba(242,166,35,0.2)'}}/>
+          <div className="text-xs tracking-[3px] uppercase text-[#8B5CF6] mb-6 flex items-center gap-3">
+            Welcome Back<div className="flex-1 h-px" style={{background:'rgba(139,92,246,0.2)'}}/>
           </div>
-          <h2 className="font-bebas text-5xl tracking-[3px] mb-2">Sign In to<br/><span className="text-gold">Arena</span></h2>
+          <h2 className="font-bebas text-5xl tracking-[3px] mb-2">Sign In to<br/><span className="text-[#8B5CF6]">Arena</span></h2>
           <p className="text-muted text-sm mb-8">Your profile, teams and history are waiting.</p>
 
           <button onClick={handleGoogle} disabled={loading}
@@ -114,11 +112,16 @@ export default function LoginPage() {
             <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={6}
                    onKeyDown={e=>e.key==='Enter'&&code.length===6&&navigate(`/join?code=${code}`)}
                    className="aa-input flex-1 text-center font-mono text-xl tracking-[6px] uppercase" placeholder="AX94KL"/>
-            <button onClick={()=>code.length===6&&navigate(`/join?code=${code}`)} className="btn-gold" style={{padding:'0.8rem 1.2rem',whiteSpace:'nowrap',fontSize:'0.85rem'}}>Join →</button>
+            
+            <button onClick={()=>code.length===6&&navigate(`/join?code=${code}`)} 
+                    className="flex items-center justify-center rounded-xl font-bold transition-all hover:-translate-y-0.5 active:scale-95" 
+                    style={{padding:'0.8rem 1.2rem',whiteSpace:'nowrap',fontSize:'0.85rem', background:'#8B5CF6', color:'#FFFFFF', border:'none'}}>
+              Join →
+            </button>
           </div>
 
           <p className="text-center text-xs text-muted mt-8 leading-relaxed">
-            By continuing, you agree to our <a href="#" className="text-gold no-underline">Terms</a> and <a href="#" className="text-gold no-underline">Privacy Policy</a>.<br/>
+            By continuing, you agree to our <a href="#" className="text-[#8B5CF6] no-underline">Terms</a> and <a href="#" className="text-[#8B5CF6] no-underline">Privacy Policy</a>.<br/>
             <span className="text-muted/60">First time? We'll set up your profile in 30 seconds.</span>
           </p>
         </div>
