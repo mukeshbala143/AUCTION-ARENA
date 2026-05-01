@@ -41,8 +41,8 @@ VITE_SOCKET_URL=http://localhost:3001
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-FRONTEND_URL=http://localhost:5173
-PORT=3001
+FRONTEND_URL=http://localhost:0000
+PORT=3000
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
