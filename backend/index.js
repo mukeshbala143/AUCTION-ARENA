@@ -3,7 +3,8 @@ const express  = require('express')
 const http     = require('http')
 const { Server } = require('socket.io')
 const cors     = require('cors')
-const axios    = require('axios') // ✅ ADDED: For Cashfree Payment requests
+const axios    = require('axios')
+const crypto   = require('crypto')
 const { createClient } = require('@supabase/supabase-js')
 const app    = express()
 const server = http.createServer(app)
@@ -1196,53 +1197,85 @@ process.on('uncaughtException', (error) => {
 })
 
 // ==========================================
-// ✅ ADDED: Cashfree Payment Route
+// Razorpay Payment Routes
 // ==========================================
 app.post('/api/create-order', async (req, res) => {
   try {
     const { amount, name, email } = req.body;
-    
-    // Unique order ID har payment ke liye
-    const orderId = 'ORDER_' + Date.now(); 
+
+    const donationAmount = Number(amount);
+    if (!Number.isFinite(donationAmount) || donationAmount < 20) {
+      return res.status(400).json({ error: 'Minimum donation amount is ₹20' });
+    }
+
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET_KEY;
+    if (!keyId || !keySecret) {
+      return res.status(500).json({ error: 'Razorpay credentials are not configured' });
+    }
 
     const options = {
       method: 'POST',
-      url: 'https://sandbox.cashfree.com/pg/orders', // TEST API URL
-      headers: {
-        'accept': 'application/json',
-        'x-client-id': process.env.CASHFREE_APP_ID,
-        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
-        'x-api-version': '2023-08-01',
-        'content-type': 'application/json'
+      url: 'https://api.razorpay.com/v1/orders',
+      auth: {
+        username: keyId,
+        password: keySecret,
       },
+      headers: { 'content-type': 'application/json' },
       data: {
-        order_amount: amount,
-        order_currency: 'INR',
-        order_id: orderId,
-        customer_details: {
-          customer_id: 'CUST_' + Date.now(),
-          customer_name: name || 'Anonymous Supporter',
-          customer_email: email || 'support@auctionarena.com',
-          customer_phone: '9999999999' // Testing ke liye dummy number
+        amount: Math.round(donationAmount * 100),
+        currency: 'INR',
+        receipt: `donation_${Date.now()}`,
+        notes: {
+          donor_name: name || 'Anonymous Supporter',
+          donor_email: email || 'support@auctionarena.com',
+          source: 'auction-arena-donation',
         },
-        order_meta: {
-          // Automatically live website ka URL utha lega
-          return_url: `${process.env.FRONTEND_URL || 'https://www.auctionarena.org'}/dashboard?payment=success` 
-        }
       }
     };
 
-    // Cashfree ko request bhejo
     const response = await axios.request(options);
-    
-    // Frontend ko session_id wapas bhejo
-    res.json({ payment_session_id: response.data.payment_session_id });
+
+    res.json({
+      key_id: keyId,
+      order_id: response.data.id,
+      amount: response.data.amount,
+      currency: response.data.currency,
+    });
 
   } catch (error) {
-    console.error("Cashfree Error:", error.response ? error.response.data : error.message);
+    console.error("Razorpay order error:", error.response ? error.response.data : error.message);
     res.status(500).json({ error: 'Payment initiation failed' });
   }
 });
 
-server.listen(PORT, () => console.log(`🚀 Auction Arena backend on port ${PORT}`))
+app.post('/api/verify-payment', (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET_KEY;
 
+    if (!keySecret) {
+      return res.status(500).json({ error: 'Razorpay credentials are not configured' });
+    }
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: 'Missing Razorpay payment details' });
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ error: 'Payment verification failed' });
+    }
+
+    res.json({ verified: true });
+  } catch (error) {
+    console.error("Razorpay verification error:", error.message);
+    res.status(500).json({ error: 'Payment verification failed' });
+  }
+});
+
+server.listen(PORT, () => console.log(`🚀 Auction Arena backend on port ${PORT}`))

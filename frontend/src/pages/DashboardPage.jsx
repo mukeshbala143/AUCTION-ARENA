@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, signOut } from '../lib/supabase'
 import { useStore } from '../store'
 import AppFooter from '../components/AppFooter'
-import { load } from '@cashfreepayments/cashfree-js' // ✅ ADDED: Cashfree SDK
 
 const SPORTS = [
   { id:'ipl', icon:'🏏', name:'IPL Cricket', full:'Indian Premier League', isComingSoon:false, color:'#F2A623', glow:'rgba(242,166,35,0.12)', border:'rgba(242,166,35,0.35)', stats:[['350','Players'],['₹120Cr','Purse'],['8','Overseas']] },
@@ -26,6 +25,18 @@ const DONATION_TIERS = [
 
 // Aapki Nayi Web3Forms Key
 const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
+
+const loadRazorpayCheckout = () => {
+  if (window.Razorpay) return Promise.resolve(true)
+
+  return new Promise((resolve) => {
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
 
 export default function DashboardPage() {
   const { user, profile, setProfile } = useStore()
@@ -199,15 +210,26 @@ export default function DashboardPage() {
     }
   }
 
-  // ✅ 3. Handle Cashfree Payment
+  // ✅ 3. Handle Razorpay Payment
   const handlePayment = async () => {
     try {
-      // 1. Backend se Payment Session ID mango
+      const amount = Number(donationAmount)
+      if (!Number.isFinite(amount) || amount < 20) {
+        alert("Minimum donation amount is ₹20.");
+        return;
+      }
+
+      const isRazorpayLoaded = await loadRazorpayCheckout()
+      if (!isRazorpayLoaded) {
+        alert("Unable to load Razorpay. Please check your connection and try again.");
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          amount: donationAmount,
+          amount,
           name: profile?.display_name || "Supporter",
           email: profile?.email || "supporter@auctionarena.com"
         })
@@ -215,32 +237,46 @@ export default function DashboardPage() {
 
       const data = await res.json();
 
-      if (data.payment_session_id) {
-        // 2. Cashfree SDK load karo (TEST mode me)
-        const cashfree = await load({
-          mode: "sandbox" // 🔴 Jab real payment chahiye ho tab isko "production" kar dena
+      if (data.order_id && data.key_id) {
+        const razorpay = new window.Razorpay({
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+          name: 'Auction Arena',
+          description: 'Donation Support',
+          order_id: data.order_id,
+          prefill: {
+            name: profile?.display_name || "Supporter",
+            email: profile?.email || "supporter@auctionarena.com",
+          },
+          theme: {
+            color: '#F2A623',
+          },
+          handler: async (response) => {
+            const verifyRes = await fetch(`${API_BASE_URL}/api/verify-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            });
+
+            if (!verifyRes.ok) {
+              alert("Payment could not be verified. Please contact support.");
+              return;
+            }
+
+            alert("Thank you so much for your donation! ❤️");
+            setActiveModal(null);
+          },
+          modal: {
+            ondismiss: () => console.log("Razorpay checkout closed"),
+          }
         });
 
-        // 3. Checkout Modal open karo
-        let checkoutOptions = {
-          paymentSessionId: data.payment_session_id,
-          redirectTarget: "_modal", // Isse same page par ek sundar popup khulega
-        };
-
-        cashfree.checkout(checkoutOptions).then((result) => {
-          if(result.error){
-              console.log("Payment failed or modal closed", result.error);
-          }
-          if(result.redirect){
-              console.log("Payment will be redirected");
-          }
-          if(result.paymentDetails){
-              console.log("Payment successful!", result.paymentDetails);
-              // Payment success hone par alert dikhao aur modal band karo
-              alert("Thank you so much for your donation! ❤️");
-              setActiveModal(null); 
-          }
+        razorpay.on('payment.failed', (response) => {
+          console.log("Payment failed", response.error);
         });
+
+        razorpay.open();
       } else {
         alert("Failed to initiate payment. Please try again.");
       }
@@ -624,9 +660,9 @@ export default function DashboardPage() {
                     onClick={handlePayment} 
                     className="w-full py-4 rounded-xl text-xs sm:text-sm font-bold tracking-[2px] uppercase transition-all hover:brightness-110 mt-4 text-black bg-white shadow-lg"
                   >
-                     Donate ₹{donationAmount} via Cashfree
+                     Donate ₹{donationAmount} via Razorpay
                   </button>
-                  <p className="text-center text-[10px] text-muted tracking-widest uppercase mt-2">Powered by Cashfree · Secure & encrypted</p>
+                  <p className="text-center text-[10px] text-muted tracking-widest uppercase mt-2">Powered by Razorpay · Secure & encrypted</p>
                 </div>
               </div>
             )}

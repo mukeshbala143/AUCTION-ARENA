@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { exchangeCodeForSessionIfPresent } from '../lib/supabase'
 import { API_BASE_URL } from '../lib/config'
 import { useStore } from '../store'
-import { load } from '@cashfreepayments/cashfree-js' 
 
 // SPORTS CARDS WITH DIFFERENT COLORS AS REQUESTED
 const SPORTS = [
@@ -46,6 +45,18 @@ const DONATION_TIERS = [
 ]
 
 const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
+
+const loadRazorpayCheckout = () => {
+  if (window.Razorpay) return Promise.resolve(true)
+
+  return new Promise((resolve) => {
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
 
 export default function LandingPage() {
   const [code, setCode] = useState('')
@@ -135,11 +146,23 @@ export default function LandingPage() {
 
   const handlePayment = async () => {
     try {
+      const amount = Number(donationAmount)
+      if (!Number.isFinite(amount) || amount < 20) {
+        alert("Minimum donation amount is ₹20.");
+        return;
+      }
+
+      const isRazorpayLoaded = await loadRazorpayCheckout()
+      if (!isRazorpayLoaded) {
+        alert("Unable to load Razorpay. Please check your connection and try again.");
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          amount: donationAmount,
+          amount,
           name: profile?.display_name || "Supporter",
           email: profile?.email || "supporter@auctionarena.com"
         })
@@ -147,29 +170,46 @@ export default function LandingPage() {
 
       const data = await res.json();
 
-      if (data.payment_session_id) {
-        const cashfree = await load({
-          mode: "sandbox" 
+      if (data.order_id && data.key_id) {
+        const razorpay = new window.Razorpay({
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+          name: 'Auction Arena',
+          description: 'Donation Support',
+          order_id: data.order_id,
+          prefill: {
+            name: profile?.display_name || "Supporter",
+            email: profile?.email || "supporter@auctionarena.com",
+          },
+          theme: {
+            color: '#FF5A00',
+          },
+          handler: async (response) => {
+            const verifyRes = await fetch(`${API_BASE_URL}/api/verify-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            });
+
+            if (!verifyRes.ok) {
+              alert("Payment could not be verified. Please contact support.");
+              return;
+            }
+
+            alert("Thank you so much for your donation! ❤️");
+            setActiveModal(null);
+          },
+          modal: {
+            ondismiss: () => console.log("Razorpay checkout closed"),
+          }
         });
 
-        let checkoutOptions = {
-          paymentSessionId: data.payment_session_id,
-          redirectTarget: "_modal", 
-        };
-
-        cashfree.checkout(checkoutOptions).then((result) => {
-          if(result.error){
-              console.log("Payment failed or modal closed", result.error);
-          }
-          if(result.redirect){
-              console.log("Payment will be redirected");
-          }
-          if(result.paymentDetails){
-              console.log("Payment successful!", result.paymentDetails);
-              alert("Thank you so much for your donation! ❤️");
-              setActiveModal(null); 
-          }
+        razorpay.on('payment.failed', (response) => {
+          console.log("Payment failed", response.error);
         });
+
+        razorpay.open();
       } else {
         alert("Failed to initiate payment. Please try again.");
       }
@@ -237,30 +277,17 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Live User Stats */}
-      {totalUsers > 0 && (
-        <div className="fixed top-24 sm:top-28 md:top-32 right-4 md:right-10 z-40" style={{backdropFilter:'blur(12px)'}}>
-          <div className="flex items-center gap-4 rounded-full py-2 px-4" style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}>
-            <div className="text-center border-r border-white/10 pr-4 hidden">
-              <div className="font-mono text-sm text-white">{totalUsers.toLocaleString()}</div>
-              <div className="text-muted text-[10px] uppercase tracking-widest">Users</div>
-            </div>
-            <div className="text-center flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-              </span>
-              <div>
-                <div className="font-mono text-sm text-white">{displayActiveUsers.toLocaleString()}</div>
-                <div className="text-muted text-[10px] uppercase tracking-widest">Live</div>
-              </div>
-            </div>
-          </div>
+      {/* Virtual Coin Notice */}
+      <div className="relative z-40 px-4 md:px-10 pt-24 sm:pt-28 md:pt-32" style={{backdropFilter:'blur(12px)'}}>
+        <div className=" py-2 px-5 w-full max-w-3xl mx-auto overflow-hidden" style={{background:'#FFFFFF', border:'1px solid rgba(255,255,255,0.1)'}}>
+          <marquee className="text-[#FF5A00] text-xs sm:text-sm uppercase tracking-[1px] font-semibold">
+            This website does not use real money for purchasing or bidding on players. All bidding uses virtual coins provided by Auction Arena.
+          </marquee>
         </div>
-      )}
+      </div>
 
       {/* HERO */}
-      <section className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-4 sm:px-6 pt-40 md:pt-48">
+      <section className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-4 sm:px-6 pt-16 md:pt-20">
 
         <h1 style={{display:"none"}}>
           IPL Auction App Cricket Auction Online Fantasy Cricket Auction Game India
@@ -527,9 +554,9 @@ export default function LandingPage() {
                     onClick={handlePayment} 
                     className="w-full py-4 rounded-full text-sm font-bold transition-all mt-4 text-black bg-white hover:bg-gray-200"
                   >
-                     Donate ₹{donationAmount} via Cashfree
+                     Donate ₹{donationAmount} via Razorpay
                   </button>
-                  <p className="text-center text-xs text-muted mt-3">Powered by Cashfree · Secure & encrypted</p>
+                  <p className="text-center text-xs text-muted mt-3">Powered by Razorpay · Secure & encrypted</p>
                 </div>
               </div>
             )}
