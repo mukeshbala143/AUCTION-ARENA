@@ -9,7 +9,7 @@ const SPORTS = [
   { id:'kabaddi', icon:'🤼', tag:'Pro Kabaddi', name:'Pro Kabaddi\nLeague', color:'#EF4444', glow:'rgba(239,68,68,0.15)', border:'rgba(239,68,68,0.3)',
     desc:'200+ PKL stars — raiders, defenders & all-rounders. Build the most feared Kabaddi roster.', stats:[['200+','Players'],['₹4Cr','Purse'],['3','Roles']] },
   { id:'football', icon:'⚽', tag:'World Football', name:'World\nFootball', color:'#10B981', glow:'rgba(16,185,129,0.15)', border:'rgba(16,185,129,0.3)',
-    desc:'500+ global superstars from PL, La Liga, Serie A, ISL & beyond. Build your ultimate dream XI.', stats:[['500+','Players'],['200M','Budget'],['10','Positions']] },
+    desc:'500+ global superstars from PL, La Liga, Serie A, ISL & beyond. Build your ultimate dream XI.', stats:[['500+','Players'],['200M.','Budget'],['10','Positions']] },
 ]
 
 const FEATS = [
