@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { exchangeCodeForSessionIfPresent } from '../lib/supabase'
 import { useStore } from '../store'
 
 const SPORTS = [
@@ -34,6 +33,17 @@ const STEPS = [
 const WEB3FORMS_ACCESS_KEY = '5a7d81b6-3b40-470d-bf3c-8b4e3be462f3'
 const DONATION_SUPPORT_URL = 'https://rzp.io/rzp/wPL9hBPr'
 
+const runWhenIdle = (callback) => {
+  if (typeof window === 'undefined') return undefined
+  if ('requestIdleCallback' in window) {
+    const id = window.requestIdleCallback(callback, { timeout: 1500 })
+    return () => window.cancelIdleCallback(id)
+  }
+
+  const id = window.setTimeout(callback, 900)
+  return () => window.clearTimeout(id)
+}
+
 const isSuccessfulDonationReturn = (search) => {
   const params = new URLSearchParams(search)
   const status = (
@@ -64,11 +74,13 @@ export default function LandingPage() {
 
   useEffect(() => {
     let mounted = true
+    let cancelIdle
 
     const redirectAuthenticatedUser = async () => {
       try {
         if (isDonationReturn.current) return
 
+        const { exchangeCodeForSessionIfPresent } = await import('../lib/supabase')
         const { session, profile } = await exchangeCodeForSessionIfPresent()
 
         if (!mounted || !session?.user) return
@@ -81,10 +93,11 @@ export default function LandingPage() {
       }
     }
 
-    redirectAuthenticatedUser()
+    cancelIdle = runWhenIdle(redirectAuthenticatedUser)
 
     return () => {
       mounted = false
+      cancelIdle?.()
     }
   }, [navigate, setProfile, setUser])
 
@@ -176,7 +189,7 @@ export default function LandingPage() {
       <div className="orb" style={{width:'120vw', height:'70vh', background:'radial-gradient(ellipse at bottom, rgba(255, 120, 0, 0.2) 0%, rgba(204, 72, 0, 0.05) 40%, transparent 70%)', bottom:'-20%', left:'-10%', filter:'blur(140px)'}}/>
 
       {/* NAV */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-10 py-5"
+      <nav className="landing-nav fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-10 py-5"
            style={{background:'rgba(10,5,0,0.7)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
         <span className="font-bebas text-xl sm:text-2xl tracking-[2px] sm:tracking-[4px] text-white">AUCTION<span className="text-[#FF5A00]"> ARENA</span></span>
         <div className="flex items-center gap-4 md:gap-8">
@@ -556,5 +569,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
-

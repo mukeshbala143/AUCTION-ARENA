@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#0A0500" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all'" />
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  </noscript>
 
   <!-- 🔥 WHATSAPP / SOCIAL PREVIEW (TOP & CLEAN) -->
   <meta property="og:title" content="Auction Arena" />
@@ -16,9 +24,18 @@
   <meta property="og:url" content="https://auctionarena.org/" />
   <meta property="og:type" content="website" />
 
-  <!-- AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3543205420069830"
-    crossorigin="anonymous"></script>
+  <!-- AdSense is loaded after first paint to protect mobile LCP/TBT. -->
+  <script>
+    window.addEventListener('load', function () {
+      window.setTimeout(function () {
+        var script = document.createElement('script');
+        script.async = true;
+        script.crossOrigin = 'anonymous';
+        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3543205420069830';
+        document.head.appendChild(script);
+      }, 1800);
+    });
+  </script>
   <meta name="google-adsense-account" content="ca-pub-3543205420069830">
 
   <!-- Title -->
