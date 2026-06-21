@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { exchangeCodeForSessionIfPresent } from '../lib/supabase'
-import { API_BASE_URL } from '../lib/config'
 import { useStore } from '../store'
 
-// SPORTS CARDS WITH DIFFERENT COLORS AS REQUESTED
 const SPORTS = [
   { id:'ipl', icon:'🏏', tag:'IPL Cricket', name:'Indian Premier\nLeague', color:'#FF5A00', glow:'rgba(255,90,0,0.15)', border:'rgba(255,90,0,0.3)',
     desc:'350+ elite players — capped legends, uncapped gems, overseas stars. ₹120 Crore purse per team.', stats:[['350+','Players'],['₹120Cr','Purse'],['8','Overseas Cap']] },
   { id:'kabaddi', icon:'🤼', tag:'Pro Kabaddi', name:'Pro Kabaddi\nLeague', color:'#EF4444', glow:'rgba(239,68,68,0.15)', border:'rgba(239,68,68,0.3)',
     desc:'200+ PKL stars — raiders, defenders & all-rounders. Build the most feared Kabaddi roster.', stats:[['200+','Players'],['₹4Cr','Purse'],['3','Roles']] },
   { id:'football', icon:'⚽', tag:'World Football', name:'World\nFootball', color:'#10B981', glow:'rgba(16,185,129,0.15)', border:'rgba(16,185,129,0.3)',
-    desc:'500+ global superstars from PL, La Liga, Serie A, ISL & beyond. Build your ultimate dream XI.', stats:[['500+','Players'],['€200M','Budget'],['10','Positions']] },
+    desc:'500+ global superstars from PL, La Liga, Serie A, ISL & beyond. Build your ultimate dream XI.', stats:[['500+','Players'],['200M','Budget'],['10','Positions']] },
 ]
 
 const FEATS = [
@@ -33,51 +31,44 @@ const STEPS = [
   ['5', 'Analysis & Export', 'After the unsold round, view your AI squad analysis or download the full auction results as an Excel file.'],
 ]
 
-const DONATION_TIERS = [
-  { name: 'Supporter', amount: 20, icon: '🌱', color: '#A1A1AA' },
-  { name: 'Backer', amount: 50, icon: '⭐', color: '#FF5A00' },
-  { name: 'Pro', amount: 100, icon: '🚀', color: '#3B82F6' },
-  { name: 'Super Supporter', amount: 200, icon: '💜', color: '#A855F7' },
-  { name: 'Champion', amount: 500, icon: '🏆', color: '#F59E0B' },
-  { name: 'Legend', amount: 1000, icon: '🔥', color: '#EF4444' },
-  { name: 'Papa 👤', amount: 5000, icon: '👑', color: '#FF5A00' },
-  { name: 'Bhagwan 🙏', amount: 10000, icon: '✨', color: '#FFFFFF' },
-]
+const WEB3FORMS_ACCESS_KEY = '5a7d81b6-3b40-470d-bf3c-8b4e3be462f3'
+const DONATION_SUPPORT_URL = 'https://rzp.io/rzp/wPL9hBPr'
 
-const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
+const isSuccessfulDonationReturn = (search) => {
+  const params = new URLSearchParams(search)
+  const status = (
+    params.get('razorpay_payment_link_status') ||
+    params.get('payment') ||
+    params.get('donation')
+  )?.toLowerCase()
 
-const loadRazorpayCheckout = () => {
-  if (window.Razorpay) return Promise.resolve(true)
-
-  return new Promise((resolve) => {
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.onload = () => resolve(true)
-    script.onerror = () => resolve(false)
-    document.body.appendChild(script)
-  })
+  return ['paid', 'success', 'completed'].includes(status) || params.has('razorpay_payment_id')
 }
 
 export default function LandingPage() {
   const [code, setCode] = useState('')
-  const [totalUsers, setTotalUsers] = useState(0)
-  const { setUser, setProfile, profile } = useStore()
-  const activeUsers = useStore(s => s.activeUsers)
+  const { setUser, setProfile } = useStore()
   const navigate = useNavigate()
-  const randomActiveUsers = useRef(Math.floor(Math.random() * (179 - 53 + 1)) + 53);
-  const displayActiveUsers = activeUsers > 50 ? activeUsers : randomActiveUsers.current
-  const join = () => { if (code.trim().length === 6) navigate(`/join?code=${code.trim().toUpperCase()}`) }
+  const join = () => {
+    const roomCode = code.trim().toUpperCase()
+    if (roomCode.length === 6) navigate(`/join?code=${roomCode}`)
+  }
 
   const [activeModal, setActiveModal] = useState(null)
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   const [showContactThankYou, setShowContactThankYou] = useState(false)
-  const [donationAmount, setDonationAmount] = useState(200)
+  const [showDonationThankYou, setShowDonationThankYou] = useState(false)
+  const isDonationReturn = useRef(
+    typeof window !== 'undefined' && isSuccessfulDonationReturn(window.location.search)
+  )
 
   useEffect(() => {
     let mounted = true
 
     const redirectAuthenticatedUser = async () => {
       try {
+        if (isDonationReturn.current) return
+
         const { session, profile } = await exchangeCodeForSessionIfPresent()
 
         if (!mounted || !session?.user) return
@@ -98,23 +89,17 @@ export default function LandingPage() {
   }, [navigate, setProfile, setUser])
 
   useEffect(() => {
-    const fetchUserCount = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/stats`);
-        if (res.ok) {
-          const data = await res.json();
-          setTotalUsers(data.totalUsers || 0);
-        } else {
-          console.error("Failed to fetch stats from server:", res.status);
-          setTotalUsers(412); 
-        }
-      } catch (error) {
-        console.error("Error fetching total user count:", error);
-        setTotalUsers(412); 
-      }
-    };
-    fetchUserCount();
-  }, []);
+    if (!isDonationReturn.current) return
+
+    setShowDonationThankYou(true)
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash}`)
+
+    const timer = setTimeout(() => {
+      setShowDonationThankYou(false)
+    }, 5000)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleContactSubmit = async (e) => {
     e.preventDefault()
@@ -143,81 +128,6 @@ export default function LandingPage() {
       setIsSubmittingContact(false)
     }
   }
-
-  const handlePayment = async () => {
-    try {
-      const amount = Number(donationAmount)
-      if (!Number.isFinite(amount) || amount < 20) {
-        alert("Minimum donation amount is ₹20.");
-        return;
-      }
-
-      const isRazorpayLoaded = await loadRazorpayCheckout()
-      if (!isRazorpayLoaded) {
-        alert("Unable to load Razorpay. Please check your connection and try again.");
-        return;
-      }
-
-      const res = await fetch(`${API_BASE_URL}/api/create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          amount,
-          name: profile?.display_name || "Supporter",
-          email: profile?.email || "supporter@auctionarena.com"
-        })
-      });
-
-      const data = await res.json();
-
-      if (data.order_id && data.key_id) {
-        const razorpay = new window.Razorpay({
-          key: data.key_id,
-          amount: data.amount,
-          currency: data.currency || 'INR',
-          name: 'Auction Arena',
-          description: 'Donation Support',
-          order_id: data.order_id,
-          prefill: {
-            name: profile?.display_name || "Supporter",
-            email: profile?.email || "supporter@auctionarena.com",
-          },
-          theme: {
-            color: '#FF5A00',
-          },
-          handler: async (response) => {
-            const verifyRes = await fetch(`${API_BASE_URL}/api/verify-payment`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(response),
-            });
-
-            if (!verifyRes.ok) {
-              alert("Payment could not be verified. Please contact support.");
-              return;
-            }
-
-            alert("Thank you so much for your donation! ❤️");
-            setActiveModal(null);
-          },
-          modal: {
-            ondismiss: () => console.log("Razorpay checkout closed"),
-          }
-        });
-
-        razorpay.on('payment.failed', (response) => {
-          console.log("Payment failed", response.error);
-        });
-
-        razorpay.open();
-      } else {
-        alert("Failed to initiate payment. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error starting payment:", error);
-      alert("Something went wrong!");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-bg relative overflow-x-hidden">
@@ -261,7 +171,7 @@ export default function LandingPage() {
         }
       `}</style>
 
-      {/* MASSIVE EMBER FIRE GLOWS */}
+      {/* Background glows */}
       <div className="orb" style={{width:'150vw', height:'80vh', background:'radial-gradient(ellipse at center, rgba(255, 90, 0, 0.15) 0%, rgba(204, 72, 0, 0.05) 50%, transparent 70%)', top:'-10%', left:'-25%', filter:'blur(120px)'}}/>
       <div className="orb" style={{width:'120vw', height:'70vh', background:'radial-gradient(ellipse at bottom, rgba(255, 120, 0, 0.2) 0%, rgba(204, 72, 0, 0.05) 40%, transparent 70%)', bottom:'-20%', left:'-10%', filter:'blur(140px)'}}/>
 
@@ -277,21 +187,17 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Virtual Coin Notice */}
-      <div className="relative z-40 px-4 md:px-10 pt-24 sm:pt-28 md:pt-32" style={{backdropFilter:'blur(12px)'}}>
-        <div className=" py-2 px-5 w-full max-w-3xl mx-auto overflow-hidden" style={{background:'#FFFFFF', border:'1px solid rgba(255,255,255,0.1)'}}>
-          <marquee className="text-[#FF5A00] text-xs sm:text-sm uppercase tracking-[1px] font-semibold">
-            This website does not use real money for purchasing or bidding on players. All bidding uses virtual coins provided by Auction Arena.
-          </marquee>
-        </div>
-      </div>
-
       {/* HERO */}
       <section className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-4 sm:px-6 pt-16 md:pt-20">
 
-        <h1 style={{display:"none"}}>
-          IPL Auction App Cricket Auction Online Fantasy Cricket Auction Game India
-        </h1>
+        {showDonationThankYou && (
+          <div
+            className="mb-6 px-5 py-3 rounded-full text-xs sm:text-sm font-semibold text-white border border-orange-400/30 bg-orange-500/10"
+            role="status"
+          >
+            Thank you for supporting Auction Arena. Your payment was successful.
+          </div>
+        )}
 
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 anim-1 max-w-full text-left sm:text-center"
             style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.1)'}}>
@@ -314,14 +220,14 @@ export default function LandingPage() {
         </div>
 
         <div className="relative z-10 flex flex-col items-center mt-6 mb-8 w-full px-4">
-          <button
-            onClick={() => setActiveModal('donate')}
+          <a
+            href={DONATION_SUPPORT_URL}
             className="group flex items-center justify-center gap-3 px-6 py-3 rounded-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(242,166,35,0.2)]"
             style={{background:'rgba(242,166,35,0.08)', border:'1px solid rgba(242,166,35,0.3)', backdropFilter:'blur(10px)'}}
           >
             <span className="text-lg group-hover:scale-125 transition-transform duration-300">❤️</span>
             <span className="text-white text-xs sm:text-sm tracking-[2px] uppercase font-bold">Donate & Support</span>
-          </button>
+          </a>
           <p className="text-muted text-sm sm:text-base mt-5 mb-8 relative z-10">Donate to help us keep this project alive and bring new updates ❤️</p>
 
         </div>
@@ -505,62 +411,6 @@ export default function LandingPage() {
           >
             <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 sm:top-5 sm:right-5 text-muted hover:text-white text-2xl leading-none h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors" aria-label="Close modal">&times;</button>
             
-            {activeModal === 'donate' && (
-              <div className="w-full max-w-2xl flex flex-col mx-auto mt-2">
-                <div className="text-center mb-8 sm:mb-10">
-                   <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-orange-500/10 text-orange-400 mb-5 border border-orange-500/20 text-2xl">🔥</div>
-                   <h3 className="font-sans font-semibold text-2xl sm:text-3xl text-white mb-3">Support the project</h3>
-                   <p className="text-muted text-sm max-w-md mx-auto leading-relaxed">Even the smallest donation helps us keep Auction Arena free, fast, and improving. Every bit counts!</p>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-                   {DONATION_TIERS.map(tier => {
-                      const isSelected = Number(donationAmount) === tier.amount;
-                      return (
-                      <button key={tier.name}
-                              type="button"
-                              onClick={() => setDonationAmount(tier.amount)}
-                              className={`relative flex flex-col items-center justify-center p-5 rounded-xl transition-all group overflow-hidden ${isSelected ? 'bg-white/10 border-white/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
-                              style={{borderWidth: '1px'}}>
-                        <span className="text-2xl mb-3 group-hover:scale-110 transition-transform">{tier.icon}</span>
-                        <span className="text-white text-[11px] sm:text-xs font-semibold mb-1.5 text-center">{tier.name}</span>
-                        <span className="font-mono text-xs" style={{color: tier.color}}>₹{tier.amount}</span>
-                      </button>
-                   )})}
-                </div>
-
-                <div className="space-y-5 max-w-md mx-auto w-full">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-2">Your Name</label>
-                    <input type="text" placeholder="e.g. Auction Arena" className="w-full px-5 py-3.5 rounded-xl text-sm text-white outline-none focus:border-orange-500 transition-colors bg-white/5 border-white/10" style={{borderWidth: '1px'}} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-2">Custom Amount (₹20 min)</label>
-                    <div className="relative">
-                       <span className="absolute left-5 top-1/2 -translate-y-1/2 text-orange-400 font-mono">₹</span>
-                       <input 
-                         type="number" 
-                         value={donationAmount}
-                         onChange={(e) => setDonationAmount(e.target.value)}
-                         min="20" 
-                         className="w-full pl-9 pr-5 py-3.5 rounded-xl text-sm text-white outline-none focus:border-orange-500 transition-colors font-mono bg-white/5 border-white/10" 
-                         style={{borderWidth: '1px'}} 
-                       />
-                    </div>
-                  </div>
-
-                  <button 
-                    type="button"
-                    onClick={handlePayment} 
-                    className="w-full py-4 rounded-full text-sm font-bold transition-all mt-4 text-black bg-white hover:bg-gray-200"
-                  >
-                     Donate ₹{donationAmount} via Razorpay
-                  </button>
-                  <p className="text-center text-xs text-muted mt-3">Powered by Razorpay · Secure & encrypted</p>
-                </div>
-              </div>
-            )}
-
             {/* PRIVACY POLICY MODAL */}
             {activeModal === 'privacy' && (
               <div>
@@ -706,5 +556,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
-

@@ -11,32 +11,8 @@ const SPORTS = [
 ]
 const SC = { waiting:{bg:'rgba(242,166,35,0.1)',c:'#F2A623',l:'Waiting'}, active:{bg:'rgba(76,175,125,0.1)',c:'#4CAF7D',l:'Live'}, finished:{bg:'rgba(255,255,255,0.05)',c:'#7A7870',l:'Finished'} }
 
-// ✅ DONATION DATA (Tiers only)
-const DONATION_TIERS = [
-  { name: 'Supporter', amount: 20, icon: '🌱', color: '#4CAF7D' },
-  { name: 'Backer', amount: 50, icon: '⭐', color: '#F2A623' },
-  { name: 'Pro', amount: 100, icon: '🚀', color: '#60A5FA' },
-  { name: 'Super Supporter', amount: 200, icon: '💜', color: '#A855F7' },
-  { name: 'Champion', amount: 500, icon: '🏆', color: '#FCD34D' },
-  { name: 'Legend', amount: 1000, icon: '🔥', color: '#EF4444' },
-  { name: 'Papa 👤', amount: 5000, icon: '👑', color: '#F2A623' },
-  { name: 'Bhagwan 🙏', amount: 10000, icon: '✨', color: '#FFFFFF' },
-]
-
-// Aapki Nayi Web3Forms Key
-const WEB3FORMS_ACCESS_KEY = "5a7d81b6-3b40-470d-bf3c-8b4e3be462f3";
-
-const loadRazorpayCheckout = () => {
-  if (window.Razorpay) return Promise.resolve(true)
-
-  return new Promise((resolve) => {
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.onload = () => resolve(true)
-    script.onerror = () => resolve(false)
-    document.body.appendChild(script)
-  })
-}
+const WEB3FORMS_ACCESS_KEY = '5a7d81b6-3b40-470d-bf3c-8b4e3be462f3'
+const DONATION_SUPPORT_URL = 'https://rzp.io/rzp/wPL9hBPr'
 
 export default function DashboardPage() {
   const { user, profile, setProfile } = useStore()
@@ -53,9 +29,6 @@ export default function DashboardPage() {
 
   // Modal States
   const [activeModal, setActiveModal] = useState(null)
-  
-  // NEW STATE FOR DONATION AMOUNT
-  const [donationAmount, setDonationAmount] = useState(200)
 
   // Feedback States
   const [feedbacks, setFeedbacks] = useState([]) 
@@ -209,82 +182,6 @@ export default function DashboardPage() {
       setIsSubmittingContact(false)
     }
   }
-
-  // ✅ 3. Handle Razorpay Payment
-  const handlePayment = async () => {
-    try {
-      const amount = Number(donationAmount)
-      if (!Number.isFinite(amount) || amount < 20) {
-        alert("Minimum donation amount is ₹20.");
-        return;
-      }
-
-      const isRazorpayLoaded = await loadRazorpayCheckout()
-      if (!isRazorpayLoaded) {
-        alert("Unable to load Razorpay. Please check your connection and try again.");
-        return;
-      }
-
-      const res = await fetch(`${API_BASE_URL}/api/create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          amount,
-          name: profile?.display_name || "Supporter",
-          email: profile?.email || "supporter@auctionarena.com"
-        })
-      });
-
-      const data = await res.json();
-
-      if (data.order_id && data.key_id) {
-        const razorpay = new window.Razorpay({
-          key: data.key_id,
-          amount: data.amount,
-          currency: data.currency || 'INR',
-          name: 'Auction Arena',
-          description: 'Donation Support',
-          order_id: data.order_id,
-          prefill: {
-            name: profile?.display_name || "Supporter",
-            email: profile?.email || "supporter@auctionarena.com",
-          },
-          theme: {
-            color: '#F2A623',
-          },
-          handler: async (response) => {
-            const verifyRes = await fetch(`${API_BASE_URL}/api/verify-payment`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(response),
-            });
-
-            if (!verifyRes.ok) {
-              alert("Payment could not be verified. Please contact support.");
-              return;
-            }
-
-            alert("Thank you so much for your donation! ❤️");
-            setActiveModal(null);
-          },
-          modal: {
-            ondismiss: () => console.log("Razorpay checkout closed"),
-          }
-        });
-
-        razorpay.on('payment.failed', (response) => {
-          console.log("Payment failed", response.error);
-        });
-
-        razorpay.open();
-      } else {
-        alert("Failed to initiate payment. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error starting payment:", error);
-      alert("Something went wrong!");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-bg relative overflow-hidden flex flex-col">
@@ -560,16 +457,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ✅ DONATION BUTTON */}
         <div className="relative z-10 flex flex-col items-center mt-6 mb-8 w-full px-4">
-          <button
-            onClick={() => setActiveModal('donate')}
+          <a
+            href={DONATION_SUPPORT_URL}
             className="group flex items-center justify-center gap-3 px-6 py-3 rounded-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(242,166,35,0.2)]"
             style={{background:'rgba(242,166,35,0.08)', border:'1px solid rgba(242,166,35,0.3)', backdropFilter:'blur(10px)'}}
           >
             <span className="text-lg group-hover:scale-125 transition-transform duration-300">❤️</span>
             <span className="text-gold text-xs sm:text-sm tracking-[2px] uppercase font-bold">Donate & Support</span>
-          </button>
+          </a>
           <p className="text-muted text-sm sm:text-base mt-5 mb-8 relative z-10">Donate to help us keep this project alive and bring new updates ❤️</p>
 
         </div>
@@ -606,67 +502,6 @@ export default function DashboardPage() {
           >
             <button onClick={() => setActiveModal(null)} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-muted hover:text-white text-2xl leading-none h-9 w-9 grid place-items-center rounded-lg" aria-label="Close modal">&times;</button>
             
-            {/* ✅ DONATE MODAL */}
-            {activeModal === 'donate' && (
-              <div className="w-full max-w-2xl flex flex-col mx-auto">
-                <div className="text-center mb-6 sm:mb-8">
-                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 text-red-500 mb-4 border border-red-500/20 text-2xl animate-pulse">❤️</div>
-                   <h3 className="font-bebas text-2xl sm:text-3xl tracking-[2px] text-white uppercase mb-2">Your support means the world</h3>
-                   <p className="text-muted text-xs sm:text-sm max-w-md mx-auto">Even the smallest donation helps us keep Auction Arena free, fast, and improving. Every rupee counts!</p>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-                   {DONATION_TIERS.map(tier => {
-                      const isSelected = Number(donationAmount) === tier.amount;
-                      return (
-                      <button key={tier.name}
-                              type="button"
-                              onClick={() => setDonationAmount(tier.amount)}
-                              className={`relative flex flex-col items-center justify-center p-4 rounded-xl transition-all hover:-translate-y-1 group overflow-hidden ${isSelected ? 'shadow-[0_0_15px_rgba(242,166,35,0.3)]' : ''}`}
-                              style={{
-                                background: isSelected ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)', 
-                                border: `1px solid ${isSelected ? '#F2A623' : 'rgba(255,255,255,0.08)'}`
-                              }}>
-                        
-                        <span className="text-2xl mb-2 group-hover:scale-110 transition-transform">{tier.icon}</span>
-                        <span className="text-white text-[11px] sm:text-xs font-semibold mb-1 tracking-wider text-center">{tier.name}</span>
-                        <span className="font-mono text-xs" style={{color: tier.color}}>₹{tier.amount}</span>
-                      </button>
-                   )})}
-                </div>
-
-                <div className="space-y-4 max-w-md mx-auto w-full">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-[2px] text-muted mb-2 text-center">Your Name</label>
-                    <input type="text" placeholder="e.g Auction Arena" className="w-full px-4 py-3 rounded-xl text-sm text-center text-white outline-none focus:border-gold transition-colors" style={{background:'#161622', border:'1px solid rgba(255,255,255,0.08)'}} />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-[2px] text-muted mb-2 text-center">Custom Amount (₹20 min)</label>
-                    <div className="relative">
-                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gold font-mono">₹</span>
-                       <input 
-                         type="number" 
-                         value={donationAmount}
-                         onChange={(e) => setDonationAmount(e.target.value)}
-                         min="20" 
-                         className="w-full pl-8 pr-4 py-3 rounded-xl text-sm text-center text-white outline-none focus:border-gold transition-colors font-mono" 
-                         style={{background:'#161622', border:'1px solid rgba(255,255,255,0.08)'}} 
-                       />
-                    </div>
-                  </div>
-
-                  <button 
-                    type="button" 
-                    onClick={handlePayment} 
-                    className="w-full py-4 rounded-xl text-xs sm:text-sm font-bold tracking-[2px] uppercase transition-all hover:brightness-110 mt-4 text-black bg-white shadow-lg"
-                  >
-                     Donate ₹{donationAmount} via Razorpay
-                  </button>
-                  <p className="text-center text-[10px] text-muted tracking-widest uppercase mt-2">Powered by Razorpay · Secure & encrypted</p>
-                </div>
-              </div>
-            )}
-
             {/* PRIVACY POLICY MODAL */}
             {activeModal === 'privacy' && (
               <div>
