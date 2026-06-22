@@ -18,8 +18,8 @@ function getReminderConfig() {
     fromEmail: process.env.RESEND_FROM_EMAIL || 'Auction Arena <onboarding@resend.dev>',
     replyTo: process.env.RESEND_REPLY_TO || undefined,
     appUrl: process.env.FRONTEND_URL || 'https://www.auctionarena.org',
-    inactivityDays: toPositiveInt(process.env.LOGIN_REMINDER_INACTIVE_DAYS, 5),
-    repeatDays: toPositiveInt(process.env.LOGIN_REMINDER_REPEAT_DAYS, 5),
+    inactivityDays: toPositiveInt(process.env.LOGIN_REMINDER_INACTIVE_DAYS, 3),
+    repeatDays: toPositiveInt(process.env.LOGIN_REMINDER_REPEAT_DAYS, 3),
     batchSize: Math.min(toPositiveInt(process.env.LOGIN_REMINDER_BATCH_SIZE, 100), 1000),
   }
 }

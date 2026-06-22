@@ -47,8 +47,8 @@ GEMINI_API_KEY=your-gemini-api-key
 RESEND_API_KEY=your-resend-api-key
 RESEND_FROM_EMAIL="Auction Arena <your-verified@yourdomain.com>"
 LOGIN_REMINDERS_ENABLED=true
-LOGIN_REMINDER_INACTIVE_DAYS=5
-LOGIN_REMINDER_REPEAT_DAYS=5
+LOGIN_REMINDER_INACTIVE_DAYS=3
+LOGIN_REMINDER_REPEAT_DAYS=3
 CRON_SECRET=choose-a-long-random-secret
 ```
 
