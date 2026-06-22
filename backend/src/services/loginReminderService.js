@@ -37,26 +37,61 @@ function buildReminderEmail(user, config) {
     user.email?.split('@')[0] ||
     'there'
 
-  const subject = '🏏 Auction Arena Misses You!'
+  const subject = 'See what is new in Auction Arena'
   const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <h2 style="margin:0 0 16px">Come Back to Auction Arena!</h2>
-      <p>Hi ${escapeHtml(name)},</p>
-      <p>Your team is waiting.</p>
-      <p>
-        <a href="${escapeHtml(config.appUrl)}" style="display:inline-block;background:#ff5a00;color:#000;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px">
-          Play Now
-        </a>
-      </p>
-      <p style="font-size:12px;color:#6b7280">You are receiving this because you created an Auction Arena account.</p>
+    <div style="margin:0;padding:0;background:#f6f7fb;font-family:Arial,Helvetica,sans-serif;color:#111827">
+      <div style="max-width:560px;margin:0 auto;padding:32px 16px">
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+          <div style="background:#111827;padding:22px 28px">
+            <div style="font-size:20px;font-weight:800;letter-spacing:.5px;color:#ff5a00">Auction Arena</div>
+          </div>
+          <div style="padding:28px;line-height:1.6;font-size:15px">
+            <p style="margin:0 0 18px">Hi ${escapeHtml(name)},</p>
+            <p style="margin:0 0 18px">It's been a few days since your last visit to Auction Arena.</p>
+            <p style="margin:0 0 18px">Since then, we've been working behind the scenes to make the experience even better.</p>
+
+            <div style="margin:22px 0;padding:18px 20px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px">
+              <p style="margin:0 0 10px">🏆 New auctions are live</p>
+              <p style="margin:0 0 10px">⚡ Improved gameplay experience</p>
+              <p style="margin:0">🎯 More opportunities to compete and win</p>
+            </div>
+
+            <p style="margin:0 0 22px">Take a quick look and see what's new.</p>
+            <p style="margin:0 0 24px">
+              <a href="${escapeHtml(config.appUrl)}" style="display:inline-block;background:#ff5a00;color:#111827;text-decoration:none;font-weight:800;padding:13px 20px;border-radius:8px">
+                Return to Auction Arena
+              </a>
+            </p>
+
+            <p style="margin:0 0 18px">We'd love to have you back in the Arena.</p>
+            <p style="margin:0">Best regards,<br>Team Auction Arena</p>
+          </div>
+          <div style="padding:18px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5">
+            You are receiving this because you created an Auction Arena account.
+          </div>
+        </div>
+      </div>
     </div>
   `
   const text = [
     `Hi ${name},`,
     '',
-    'Come Back to Auction Arena!',
-    'Your team is waiting.',
-    `Play Now: ${config.appUrl}`,
+    "It's been a few days since your last visit to Auction Arena.",
+    '',
+    "Since then, we've been working behind the scenes to make the experience even better.",
+    '',
+    '🏆 New auctions are live',
+    '⚡ Improved gameplay experience',
+    '🎯 More opportunities to compete and win',
+    '',
+    "Take a quick look and see what's new.",
+    '',
+    `Return to Auction Arena: ${config.appUrl}`,
+    '',
+    "We'd love to have you back in the Arena.",
+    '',
+    'Best regards,',
+    'Team Auction Arena',
   ].join('\n')
 
   return { subject, html, text }
