@@ -112,6 +112,13 @@ CREATE TABLE IF NOT EXISTS public.unsold_selections (
   UNIQUE(team_id, lot_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.login_reminders (
+  user_id      UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email        TEXT NOT NULL,
+  last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ── INDEXES ───────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_rooms_code    ON public.rooms(code);
 CREATE INDEX IF NOT EXISTS idx_players_sport ON public.players(sport);
@@ -121,6 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_picks_team    ON public.squad_picks(room_id, team
 CREATE INDEX IF NOT EXISTS idx_skips_lot     ON public.skips(lot_id);
 CREATE INDEX IF NOT EXISTS idx_unsold_selections_room ON public.unsold_selections(room_id);
 CREATE INDEX IF NOT EXISTS idx_unsold_selections_team ON public.unsold_selections(team_id);
+CREATE INDEX IF NOT EXISTS idx_login_reminders_last_sent_at ON public.login_reminders(last_sent_at);
 
 -- ── RLS POLICIES ──────────────────────────────────────────────
 ALTER TABLE public.users        ENABLE ROW LEVEL SECURITY;
@@ -132,6 +140,7 @@ ALTER TABLE public.bids         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.squad_picks  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skips        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.unsold_selections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.login_reminders ENABLE ROW LEVEL SECURITY;
 
 -- Users
 CREATE POLICY "users_select" ON public.users FOR SELECT TO authenticated USING (true);

@@ -44,7 +44,15 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 FRONTEND_URL=http://localhost:0000
 PORT=3000
 GEMINI_API_KEY=your-gemini-api-key
+RESEND_API_KEY=your-resend-api-key
+RESEND_FROM_EMAIL="Auction Arena <your-verified@yourdomain.com>"
+LOGIN_REMINDERS_ENABLED=true
+LOGIN_REMINDER_INACTIVE_DAYS=5
+LOGIN_REMINDER_REPEAT_DAYS=5
+CRON_SECRET=choose-a-long-random-secret
 ```
+
+For an existing Supabase project, run `supabase/login_reminders.sql` once in the SQL Editor before enabling login reminders.
 
 ### Step 4 — Run
 ```bash

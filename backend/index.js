@@ -6,6 +6,7 @@ const cors     = require('cors')
 const axios    = require('axios')
 const crypto   = require('crypto')
 const { createClient } = require('@supabase/supabase-js')
+const { runLoginReminderSweep, startLoginReminderScheduler } = require('./src/services/loginReminderService')
 const app    = express()
 const server = http.createServer(app)
 const DEFAULT_FRONTEND_ORIGINS = [
@@ -99,6 +100,27 @@ app.get('/ping', (_req, res) => res.json({ ok: true, ts: Date.now() }))
 
 app.use('/api/rooms',    require('./src/routes/rooms')(supabase, requireHttpUser))
 app.use('/api/analysis', require('./src/routes/analysis')(supabase))
+
+app.post('/api/admin/login-reminders/run', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET
+  const providedSecret = req.headers['x-cron-secret'] || req.query.secret
+
+  if (!cronSecret || providedSecret !== cronSecret) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  try {
+    const testAllUsers = req.body?.testAllUsers === true || req.query.testAllUsers === 'true'
+    const result = await runLoginReminderSweep(supabase, testAllUsers
+      ? { forceAllUsers: true, recordSends: false }
+      : {}
+    )
+    res.json(result)
+  } catch (error) {
+    console.error('[login-reminders] manual run failed:', error)
+    res.status(500).json({ error: 'Failed to run login reminders', details: error.message })
+  }
+})
 
 app.get('/api/stats', async (_req, res) => {
   try {
@@ -1279,3 +1301,4 @@ app.post('/api/verify-payment', (req, res) => {
 });
 
 server.listen(PORT, () => console.log(`🚀 Auction Arena backend on port ${PORT}`))
+startLoginReminderScheduler(supabase)
