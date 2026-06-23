@@ -36,11 +36,11 @@ const DONATION_SUPPORT_URL = 'https://rzp.io/rzp/wPL9hBPr'
 const runWhenIdle = (callback) => {
   if (typeof window === 'undefined') return undefined
   if ('requestIdleCallback' in window) {
-    const id = window.requestIdleCallback(callback, { timeout: 1500 })
+    const id = window.requestIdleCallback(callback, { timeout: 5000 })
     return () => window.cancelIdleCallback(id)
   }
 
-  const id = window.setTimeout(callback, 900)
+  const id = window.setTimeout(callback, 3500)
   return () => window.clearTimeout(id)
 }
 
@@ -256,7 +256,7 @@ export default function LandingPage() {
       </section>
 
       {/* SPORTS */}
-      <section id="sports" className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-20 sm:py-32">
+      <section id="sports" className="defer-render relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-20 sm:py-32">
         <h2 className="font-sans font-semibold text-4xl sm:text-5xl md:text-6xl tracking-tight mb-4 text-white">The Arenas</h2>
         <p className="text-muted text-sm sm:text-base mb-12 max-w-xl font-medium">Configure your room, invite friends, and bid live. Experience premium auction mechanics across three distinct sports.</p>
         
@@ -314,7 +314,7 @@ export default function LandingPage() {
       </section>
 
       {/* FEATURES */}
-      <section id="features" className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-32">
+      <section id="features" className="defer-render relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-32">
         <h2 className="font-sans font-semibold text-4xl sm:text-5xl tracking-tight mb-12 text-white text-center">Built for performance.</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {FEATS.map(([icon,title,desc])=>(
@@ -329,7 +329,7 @@ export default function LandingPage() {
         </div>
       </section>
     
-      <section className="relative z-10 max-w-5xl mx-auto px-4 md:px-8 pb-32 text-center">
+      <section className="defer-render relative z-10 max-w-5xl mx-auto px-4 md:px-8 pb-32 text-center">
         <h1 className="font-sans font-semibold text-3xl sm:text-4xl tracking-tight mb-6 text-white">
           The ultimate live auction experience.
         </h1>
@@ -338,7 +338,7 @@ export default function LandingPage() {
         </p>
       </section>
 
-      <section id="works" className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-32">
+      <section id="works" className="defer-render relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-32">
         <h2 className="font-sans font-semibold text-4xl sm:text-5xl tracking-tight mb-12 text-white">How it works.</h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -354,7 +354,7 @@ export default function LandingPage() {
       </section>
 
       {/* JOIN BOX */}
-      <section className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-20">
+      <section className="defer-render relative z-10 max-w-7xl mx-auto px-4 md:px-8 pb-20">
         <div className="rounded-3xl p-8 sm:p-12 md:p-20 text-center relative overflow-hidden" style={{background:'linear-gradient(180deg, rgba(255,90,0,0.1) 0%, rgba(0,0,0,0) 100%)',border:'1px solid rgba(255,90,0,0.2)'}}>
           <h2 className="font-sans font-semibold text-4xl sm:text-5xl md:text-6xl tracking-tight mb-4 relative z-10 text-white">Ready to dominate?</h2>
           <p className="text-muted text-sm sm:text-base mb-10 relative z-10 font-medium">Jump straight into a live room with a code, or log in to create your own.</p>
@@ -569,4 +569,3 @@ export default function LandingPage() {
     </div>
   )
 }
-

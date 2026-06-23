@@ -125,6 +125,11 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
 .anim-4{animation:fadeUp 0.6s 0.3s ease both}
 .anim-5{animation:fadeUp 0.6s 0.4s ease both}
 
+.defer-render {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 760px;
+}
+
 /* ── Mobile Responsive Auction Page ── */
 @media (max-width: 768px) {
   body::before {
@@ -138,6 +143,18 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
   .landing-nav {
     backdrop-filter: blur(10px) !important;
     -webkit-backdrop-filter: blur(10px) !important;
+  }
+
+  .anim-1,
+  .anim-2,
+  .anim-3,
+  .anim-4,
+  .anim-5 {
+    animation: none !important;
+  }
+
+  .defer-render {
+    contain-intrinsic-size: 1px 920px;
   }
 
   #main-grid {
