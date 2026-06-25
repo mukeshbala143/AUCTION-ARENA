@@ -54,6 +54,16 @@ CRON_SECRET=choose-a-long-random-secret
 
 For an existing Supabase project, run `supabase/login_reminders.sql` once in the SQL Editor before enabling login reminders.
 
+To send the login reminder email to every auth user immediately:
+```bash
+curl -X POST "https://your-backend.example.com/api/admin/login-reminders/run" \
+  -H "Content-Type: application/json" \
+  -H "x-cron-secret: your-cron-secret" \
+  -d '{"sendAllUsers":true}'
+```
+
+To test the same all-user sweep without updating reminder send history, use `{"testAllUsers":true}` instead.
+
 ### Step 4 — Run
 ```bash
 # Terminal 1 — Backend

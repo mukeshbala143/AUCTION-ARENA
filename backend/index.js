@@ -111,10 +111,11 @@ app.post('/api/admin/login-reminders/run', async (req, res) => {
 
   try {
     const testAllUsers = req.body?.testAllUsers === true || req.query.testAllUsers === 'true'
-    const result = await runLoginReminderSweep(supabase, testAllUsers
-      ? { forceAllUsers: true, recordSends: false }
-      : {}
-    )
+    const sendAllUsers = req.body?.sendAllUsers === true || req.query.sendAllUsers === 'true'
+    const result = await runLoginReminderSweep(supabase, {
+      forceAllUsers: testAllUsers || sendAllUsers,
+      recordSends: !testAllUsers,
+    })
     res.json(result)
   } catch (error) {
     console.error('[login-reminders] manual run failed:', error)
