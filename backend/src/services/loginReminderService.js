@@ -37,61 +37,42 @@ function buildReminderEmail(user, config) {
     user.email?.split('@')[0] ||
     'there'
 
-  const subject = 'See what is new in Auction Arena'
+  const safeName = escapeHtml(name)
+  const safeAppUrl = escapeHtml(config.appUrl)
+  const subject = 'Your Auction Arena account'
   const html = `
-    <div style="margin:0;padding:0;background:#f6f7fb;font-family:Arial,Helvetica,sans-serif;color:#111827">
-      <div style="max-width:560px;margin:0 auto;padding:32px 16px">
-        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
-          <div style="background:#111827;padding:22px 28px">
-            <div style="font-size:20px;font-weight:800;letter-spacing:.5px;color:#ff5a00">Auction Arena</div>
-          </div>
-          <div style="padding:28px;line-height:1.6;font-size:15px">
-            <p style="margin:0 0 18px">Hi ${escapeHtml(name)},</p>
-            <p style="margin:0 0 18px">It's been a few days since your last visit to Auction Arena.</p>
-            <p style="margin:0 0 18px">Since then, we've been working behind the scenes to make the experience even better.</p>
-
-            <div style="margin:22px 0;padding:18px 20px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px">
-              <p style="margin:0 0 10px">🏆 New auctions are live</p>
-              <p style="margin:0 0 10px">⚡ Improved gameplay experience</p>
-              <p style="margin:0">🎯 More opportunities to compete and win</p>
-            </div>
-
-            <p style="margin:0 0 22px">Take a quick look and see what's new.</p>
-            <p style="margin:0 0 24px">
-              <a href="${escapeHtml(config.appUrl)}" style="display:inline-block;background:#ff5a00;color:#111827;text-decoration:none;font-weight:800;padding:13px 20px;border-radius:8px">
-                Return to Auction Arena
-              </a>
-            </p>
-
-            <p style="margin:0 0 18px">We'd love to have you back in the Arena.</p>
-            <p style="margin:0">Best regards,<br>Team Auction Arena</p>
-          </div>
-          <div style="padding:18px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5">
-            You are receiving this because you created an Auction Arena account.
-          </div>
-        </div>
+    <div style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;color:#111827">
+      <div style="max-width:560px;margin:0 auto;padding:28px 18px;line-height:1.6;font-size:15px">
+        <p style="margin:0 0 18px">Hi ${safeName},</p>
+        <p style="margin:0 0 18px">This is a quick reminder that your Auction Arena account is still active.</p>
+        <p style="margin:0 0 18px">You can sign in anytime to continue with your rooms, teams, and auctions.</p>
+        <p style="margin:0 0 22px">
+          <a href="${safeAppUrl}" style="color:#1a56db;text-decoration:underline">Open Auction Arena</a>
+        </p>
+        <p style="margin:0 0 18px">If you did not create this account, you can ignore this email.</p>
+        <p style="margin:0">Thanks,<br>Auction Arena</p>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0 16px">
+        <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.5">
+          This message was sent because an Auction Arena account exists for this email address.
+        </p>
       </div>
     </div>
   `
   const text = [
     `Hi ${name},`,
     '',
-    "It's been a few days since your last visit to Auction Arena.",
+    'This is a quick reminder that your Auction Arena account is still active.',
     '',
-    "Since then, we've been working behind the scenes to make the experience even better.",
+    'You can sign in anytime to continue with your rooms, teams, and auctions.',
     '',
-    '🏆 New auctions are live',
-    '⚡ Improved gameplay experience',
-    '🎯 More opportunities to compete and win',
+    `Open Auction Arena: ${config.appUrl}`,
     '',
-    "Take a quick look and see what's new.",
+    'If you did not create this account, you can ignore this email.',
     '',
-    `Return to Auction Arena: ${config.appUrl}`,
+    'Thanks,',
+    'Auction Arena',
     '',
-    "We'd love to have you back in the Arena.",
-    '',
-    'Best regards,',
-    'Team Auction Arena',
+    'This message was sent because an Auction Arena account exists for this email address.',
   ].join('\n')
 
   return { subject, html, text }
